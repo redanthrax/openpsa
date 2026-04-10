@@ -1,0 +1,76 @@
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(ClientId.HasValue ? "Edit Client" : "New Client")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_model.Name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.Website" Label="Website"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.Phone" Label="Phone"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudSelect @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined" Class="mb-3">
+                @foreach (var s in Enum.GetValues<ClientStatus>()) {
+                    <MudSelectItem Value="s">@s</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="_model.Notes" Label="Notes" Lines="3"
+                Variant="Variant.Outlined" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid? ClientId { get; set; }
+
+    private readonly UpdateClientRequest _model = new();
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        if (ClientId.HasValue) {
+            var r = await Api.GetAsync<ClientDto>($"/api/clients/{ClientId}");
+            if (r.Success && r.Data is not null) {
+                _model.Name = r.Data.Name;
+                _model.Website = r.Data.Website;
+                _model.Phone = r.Data.Phone;
+                _model.Email = r.Data.Email;
+                _model.Notes = r.Data.Notes;
+                _model.Status = r.Data.Status;
+            }
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+        if (ClientId.HasValue) {
+            var r = await Api.PutAsync<ClientDto>($"/api/clients/{ClientId}", _model);
+            if (r.Success) { Snackbar.Add("Client updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var create = new CreateClientRequest {
+                Name = _model.Name, Website = _model.Website, Phone = _model.Phone,
+                Email = _model.Email, Notes = _model.Notes, Status = _model.Status
+            };
+            var r = await Api.PostAsync<ClientDto>("/api/clients", create);
+            if (r.Success) { Snackbar.Add("Client created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+}

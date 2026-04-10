@@ -1,0 +1,82 @@
+@page "/contacts"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Contacts — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Contacts</MudText>
+    <HasPermission Permission="contacts.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Contact</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Contacts.ContactDto" Items="_contacts" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <TemplateColumn Title="Name" SortBy="x => x.FullName">
+                    <CellTemplate>
+                        <MudText>@context.Item.FullName</MudText>
+                        @if (context.Item.IsPrimary) {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="ml-1">Primary</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.Title" Title="Title" />
+                <PropertyColumn Property="x => x.Email" Title="Email" />
+                <PropertyColumn Property="x => x.Phone" Title="Phone" />
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="contacts.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="contacts.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.FullName))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Contacts.ContactDto> _contacts = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Contacts.ContactDto>>("/api/contacts");
+        if (result.Success && result.Data is not null) _contacts = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<ContactDialog>("New Contact");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Contracts.Contacts.ContactDto contact) {
+        var param = new DialogParameters<ContactDialog> { { x => x.Contact, contact } };
+        var dialog = await Dialog.ShowAsync<ContactDialog>("Edit Contact", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Contact",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/contacts/{id}");
+        if (result.Success) { Snackbar.Add("Contact deleted.", Severity.Success); await LoadAsync(); }
+    }
+}

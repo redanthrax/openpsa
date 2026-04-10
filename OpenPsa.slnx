@@ -1,0 +1,21 @@
+<Solution>
+  <Project Path="src/Common/Common.csproj" />
+  <Project Path="src/IntegrationEvents/IntegrationEvents.csproj" />
+  <Project Path="src/Contracts/Contracts.csproj" />
+  <Project Path="src/Api/Api.csproj" />
+  <Project Path="src/Seed/Seed.csproj" />
+  <Project Path="src/Web/Web.csproj" />
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Authentication/Authentication.csproj" />
+    <Project Path="src/Modules/Clients/Clients.csproj" />
+    <Project Path="src/Modules/Contacts/Contacts.csproj" />
+    <Project Path="src/Modules/Tickets/Tickets.csproj" />
+    <Project Path="src/Modules/Projects/Projects.csproj" />
+    <Project Path="src/Modules/TimeEntries/TimeEntries.csproj" />
+    <Project Path="src/Modules/Invoicing/Invoicing.csproj" />
+    <Project Path="src/Modules/Notes/Notes.csproj" />
+    <Project Path="src/Modules/Security/Security.csproj" />
+    <Project Path="src/Modules/Settings/Settings.csproj" />
+    <Project Path="src/Modules/Dashboard/Dashboard.csproj" />
+  </Folder>
+</Solution>

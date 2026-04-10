@@ -1,0 +1,6 @@
+@inject NavigationManager Nav
+@attribute [AllowAnonymous]
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/login");
+}

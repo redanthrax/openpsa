@@ -1,0 +1,31 @@
+@inject IUserPermissionService PermissionService
+@inject NavigationManager Nav
+@inject ITokenStore TokenStore
+@inject JwtAuthenticationStateProvider AuthState
+
+<MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+    <ActivatorContent>
+        <MudIconButton Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" />
+    </ActivatorContent>
+    <ChildContent>
+        @if (PermissionService.CurrentUser is { } user) {
+            <MudMenuItem Disabled="true">
+                <MudText Typo="Typo.body2">@user.Name</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@user.Email</MudText>
+            </MudMenuItem>
+            <MudDivider />
+        }
+        <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
+            Sign out
+        </MudMenuItem>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    private async Task LogoutAsync() {
+        await TokenStore.ClearAsync();
+        PermissionService.Reset();
+        AuthState.NotifyStateChanged();
+        Nav.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,79 @@
+@page "/login"
+@layout BaseLayout
+@attribute [AllowAnonymous]
+@inject IApiClient Api
+@inject ITokenStore TokenStore
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Sign In — OpenPsa</PageTitle>
+
+<MudGrid Justify="Justify.Center" Class="mt-16">
+    <MudItem xs="12" sm="8" md="5" lg="4">
+        <MudPaper Class="pa-8" Elevation="3">
+            <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-6">
+                <MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-2" Style="vertical-align:middle" />
+                OpenPsa
+            </MudText>
+
+            <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
+                    Variant="Variant.Outlined" Class="mb-4" For="@(() => _model.Email)" />
+                <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password"
+                    Variant="Variant.Outlined" Class="mb-6" For="@(() => _model.Password)" />
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                    FullWidth="true" Disabled="_loading" Size="Size.Large">
+                    @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Sign In
+                </MudButton>
+            </EditForm>
+
+            <MudDivider Class="my-6" />
+
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-3" Color="Color.Secondary">
+                Or sign in with
+            </MudText>
+            <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                <MudButton Href="/api/auth/google" Variant="Variant.Outlined" StartIcon="@Icons.Custom.Brands.Google">
+                    Google
+                </MudButton>
+                <MudButton Href="/api/auth/microsoft" Variant="Variant.Outlined" StartIcon="@Icons.Custom.Brands.Microsoft">
+                    Microsoft
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private readonly LoginModel _model = new();
+    private bool _loading;
+
+    private async Task SubmitAsync() {
+        _loading = true;
+        var result = await Api.PostAsync<LoginResponse>("/api/auth/login",
+            new { _model.Email, _model.Password });
+        _loading = false;
+
+        if (result.Success && result.Data is not null) {
+            await TokenStore.SetTokenAsync(result.Data.Token);
+            AuthState.NotifyStateChanged();
+            Nav.NavigateTo("/");
+        } else {
+            Snackbar.Add(result.Error ?? "Invalid credentials", Severity.Error);
+        }
+    }
+
+    private sealed class LoginModel {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private sealed record LoginResponse(string Token, string UserId, string Email, string Name);
+}

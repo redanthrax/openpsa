@@ -1,0 +1,37 @@
+@inject IUserPermissionService PermissionService
+@implements IDisposable
+
+@if (_show) {
+    @(Authorized ?? ChildContent)
+} else if (NotAuthorized is not null) {
+    @NotAuthorized
+}
+
+@code {
+    [Parameter] public string? Permission { get; set; }
+    [Parameter] public string[]? AnyPermissions { get; set; }
+    [Parameter] public string[]? AllPermissions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Authorized { get; set; }
+    [Parameter] public RenderFragment? NotAuthorized { get; set; }
+
+    private bool _show;
+
+    protected override void OnInitialized() {
+        PermissionService.OnPermissionsChanged += Refresh;
+        Check();
+    }
+
+    protected override void OnParametersSet() => Check();
+
+    private void Check() {
+        _show = (!string.IsNullOrEmpty(Permission) && PermissionService.HasPermission(Permission))
+             || (AnyPermissions is { Length: > 0 } && PermissionService.HasAnyPermission(AnyPermissions))
+             || (AllPermissions is { Length: > 0 } && PermissionService.HasAllPermissions(AllPermissions))
+             || (Permission is null && AnyPermissions is null && AllPermissions is null);
+    }
+
+    private void Refresh() { Check(); InvokeAsync(StateHasChanged); }
+
+    public void Dispose() => PermissionService.OnPermissionsChanged -= Refresh;
+}

@@ -1,0 +1,59 @@
+@page "/settings/general"
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>General Settings — OpenPsa</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">General Settings</MudText>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+} else if (_model is not null) {
+    <MudCard Style="max-width:600px">
+        <MudCardContent>
+            <MudForm @ref="_form" @bind-IsValid="_valid">
+                <MudTextField @bind-Value="_model.CompanyName" Label="Company Name" Required="true"
+                    Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_model.CompanyEmail" Label="Company Email"
+                    InputType="InputType.Email" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_model.CompanyPhone" Label="Company Phone"
+                    Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_model.CompanyWebsite" Label="Company Website"
+                    Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_model.DefaultCurrency" Label="Default Currency"
+                    Variant="Variant.Outlined" Class="mb-3" Placeholder="USD" />
+                <MudNumericField @bind-Value="_model.DefaultPaymentTermsDays"
+                    Label="Default Payment Terms (days)" Variant="Variant.Outlined"
+                    Min="0" Class="mb-3" />
+            </MudForm>
+        </MudCardContent>
+        <MudCardActions Class="px-4 pb-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+                Disabled="_saving || !_valid">
+                @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                Save Changes
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    private Contracts.Settings.GeneralSettingsDto? _model;
+    private MudForm _form = null!;
+    private bool _valid, _loading = true, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var result = await Api.GetAsync<Contracts.Settings.GeneralSettingsDto>("/api/settings/general");
+        if (result.Success) _model = result.Data ?? new();
+        _loading = false;
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _model is null) return;
+        _saving = true;
+        var result = await Api.PutAsync<Contracts.Settings.GeneralSettingsDto>("/api/settings/general", _model);
+        if (result.Success) Snackbar.Add("Settings saved.", Severity.Success);
+        _saving = false;
+    }
+}

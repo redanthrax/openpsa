@@ -1,0 +1,91 @@
+@page "/time-entries"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Time Entries — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Time Entries</MudText>
+    <HasPermission Permission="time-entries.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">Log Time</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.TimeEntries.TimeEntryDto" Items="_entries" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Date" Title="Date" Format="MMM d, yyyy" />
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.ProjectName" Title="Project" />
+                <PropertyColumn Property="x => x.UserName" Title="User" />
+                <PropertyColumn Property="x => x.Hours" Title="Hours" Format="N2" />
+                <PropertyColumn Property="x => x.Description" Title="Description" />
+                <TemplateColumn Title="Billable" Sortable="false">
+                    <CellTemplate>
+                        <MudIcon Icon="@(context.Item.Billable ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Circle)"
+                            Color="@(context.Item.Billable ? Color.Success : Color.Default)" Size="Size.Small" />
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Invoiced" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Invoiced) {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">Invoiced</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="time-entries.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                Disabled="context.Item.Invoiced"
+                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
+                        </HasPermission>
+                        <HasPermission Permission="time-entries.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                Disabled="context.Item.Invoiced"
+                                OnClick="@(() => DeleteAsync(context.Item.Id))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.TimeEntries.TimeEntryDto> _entries = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.TimeEntries.TimeEntryDto>>("/api/time-entries");
+        if (result.Success && result.Data is not null) _entries = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<TimeEntryDialog>("Log Time");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Guid id) {
+        var param = new DialogParameters<TimeEntryDialog> { { x => x.EntryId, id } };
+        var dialog = await Dialog.ShowAsync<TimeEntryDialog>("Edit Time Entry", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id) {
+        var ok = await Dialog.ShowMessageBox("Delete Entry",
+            "Delete this time entry? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/time-entries/{id}");
+        if (result.Success) { Snackbar.Add("Entry deleted.", Severity.Success); await LoadAsync(); }
+    }
+}

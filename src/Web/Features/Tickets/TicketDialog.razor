@@ -1,0 +1,139 @@
+@using Contracts.Tickets
+@using Contracts.Clients
+@using Contracts.Projects
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(TicketId.HasValue ? "Edit Ticket" : "New Ticket")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_model.Title" Label="Title" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+                Value="_client" ValueChanged="OnClientChanged" SearchFunc="SearchClientsAsync"
+                ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                Variant="Variant.Outlined" Class="mb-3" Disabled="TicketId.HasValue" />
+            <MudAutocomplete T="ProjectSummaryDto" Label="Project (optional)"
+                @bind-Value="_project" SearchFunc="SearchProjectsAsync"
+                ToStringFunc="@(p => p?.Name ?? string.Empty)"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudSelect @bind-Value="_model.Priority" Label="Priority" Variant="Variant.Outlined">
+                        @foreach (var p in Enum.GetValues<TicketPriority>()) {
+                            <MudSelectItem Value="p">@p</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudSelect @bind-Value="_model.Type" Label="Type" Variant="Variant.Outlined">
+                        @foreach (var t in Enum.GetValues<TicketType>()) {
+                            <MudSelectItem Value="t">@t</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+            @if (TicketId.HasValue) {
+                <MudSelect @bind-Value="_updateStatus" Label="Status" Variant="Variant.Outlined" Class="mt-3 mb-3">
+                    @foreach (var s in Enum.GetValues<TicketStatus>()) {
+                        <MudSelectItem Value="s">@s</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            <MudDatePicker @bind-Date="_dueDate" Label="Due Date" Variant="Variant.Outlined" Class="mt-3 mb-3" />
+            <MudTextField @bind-Value="_model.Description" Label="Description" Lines="3"
+                Variant="Variant.Outlined" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid? TicketId { get; set; }
+
+    private readonly CreateTicketRequest _model = new();
+    private TicketStatus _updateStatus = TicketStatus.New;
+    private ClientSummaryDto? _client;
+    private ProjectSummaryDto? _project;
+    private List<ClientSummaryDto> _allClients = [];
+    private List<ProjectSummaryDto> _allProjects = [];
+    private DateTime? _dueDate;
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) _allClients = cr.Data;
+
+        if (TicketId.HasValue) {
+            var r = await Api.GetAsync<TicketDto>($"/api/tickets/{TicketId}");
+            if (r.Success && r.Data is not null) {
+                _model.Title = r.Data.Title;
+                _model.Description = r.Data.Description;
+                _model.Priority = r.Data.Priority;
+                _model.Type = r.Data.Type;
+                _updateStatus = r.Data.Status;
+                _dueDate = r.Data.DueDate;
+                _client = _allClients.FirstOrDefault(c => c.Id == r.Data.ClientId);
+                await LoadProjectsForClientAsync(r.Data.ClientId);
+                _project = _allProjects.FirstOrDefault(p => p.Id == r.Data.ProjectId);
+            }
+        }
+    }
+
+    private async void OnClientChanged(ClientSummaryDto? client) {
+        _client = client;
+        _project = null;
+        if (client is not null) await LoadProjectsForClientAsync(client.Id);
+    }
+
+    private async Task LoadProjectsForClientAsync(Guid clientId) {
+        var r = await Api.GetAsync<List<ProjectSummaryDto>>($"/api/projects?clientId={clientId}");
+        if (r.Success && r.Data is not null) _allProjects = r.Data;
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private Task<IEnumerable<ProjectSummaryDto>> SearchProjectsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allProjects
+            : _allProjects.Where(p => p.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ProjectSummaryDto>>(res);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null) return;
+        _saving = true;
+        _model.ClientId = _client.Id;
+        _model.ProjectId = _project?.Id;
+        _model.DueDate = _dueDate;
+
+        if (TicketId.HasValue) {
+            var update = new UpdateTicketRequest {
+                Title = _model.Title, Description = _model.Description,
+                Status = _updateStatus, Priority = _model.Priority, Type = _model.Type,
+                ProjectId = _model.ProjectId, DueDate = _model.DueDate
+            };
+            var r = await Api.PutAsync<TicketDto>($"/api/tickets/{TicketId}", update);
+            if (r.Success) { Snackbar.Add("Ticket updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var r = await Api.PostAsync<TicketDto>("/api/tickets", _model);
+            if (r.Success) { Snackbar.Add("Ticket created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+}

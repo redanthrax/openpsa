@@ -1,0 +1,82 @@
+@inject IUserPermissionService PermissionService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<MudNavMenu>
+    <MudText Typo="Typo.subtitle2" Class="px-4 pt-4 pb-2" Color="Color.Secondary">OpenPsa</MudText>
+    <MudDivider Class="mb-2" />
+
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    @if (!PermissionService.IsInitialized) {
+        @for (var i = 0; i < 6; i++) {
+            <div class="px-4 py-2"><MudSkeleton Width="75%" Height="22px" /></div>
+        }
+    } else {
+        <HasPermission Permission="clients.list">
+            <MudNavLink Href="/clients" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Business">
+                Clients
+            </MudNavLink>
+        </HasPermission>
+
+        <HasPermission Permission="contacts.list">
+            <MudNavLink Href="/contacts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Contacts">
+                Contacts
+            </MudNavLink>
+        </HasPermission>
+
+        <HasPermission Permission="projects.list">
+            <MudNavLink Href="/projects" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FolderOpen">
+                Projects
+            </MudNavLink>
+        </HasPermission>
+
+        <HasPermission Permission="tickets.list">
+            <MudNavLink Href="/tickets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ConfirmationNumber">
+                Tickets
+            </MudNavLink>
+        </HasPermission>
+
+        <HasPermission Permission="time-entries.list">
+            <MudNavLink Href="/time-entries" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccessTime">
+                Time Entries
+            </MudNavLink>
+        </HasPermission>
+
+        <HasPermission Permission="invoices.list">
+            <MudNavLink Href="/invoices" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Receipt">
+                Invoicing
+            </MudNavLink>
+        </HasPermission>
+
+        <MudDivider Class="my-2" />
+
+        <HasPermission AnyPermissions="@(new[]{"users.list","roles.list","settings.view","audit.list"})">
+            <MudNavGroup Title="Settings" Icon="@Icons.Material.Filled.Settings" Expanded="false">
+                <HasPermission Permission="users.list">
+                    <MudNavLink Href="/settings/users">Users</MudNavLink>
+                </HasPermission>
+                <HasPermission Permission="roles.list">
+                    <MudNavLink Href="/settings/roles">Roles</MudNavLink>
+                </HasPermission>
+                <HasPermission Permission="settings.view">
+                    <MudNavLink Href="/settings/general">General</MudNavLink>
+                </HasPermission>
+                <HasPermission Permission="audit.list">
+                    <MudNavLink Href="/settings/audit">Audit Log</MudNavLink>
+                </HasPermission>
+            </MudNavGroup>
+        </HasPermission>
+    }
+</MudNavMenu>
+
+@code {
+    protected override void OnInitialized() =>
+        PermissionService.OnPermissionsChanged += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => PermissionService.OnPermissionsChanged -= Refresh;
+}

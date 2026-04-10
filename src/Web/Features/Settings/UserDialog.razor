@@ -1,0 +1,93 @@
+@using Contracts.Users
+@using Contracts.Roles
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(User is not null ? "Edit User" : "New User")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+                Required="true" Variant="Variant.Outlined" Class="mb-3"
+                Disabled="User is not null" />
+            @if (User is null) {
+                <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password"
+                    Required="true" Variant="Variant.Outlined" Class="mb-3" />
+            }
+            <MudSelect T="Guid" @bind-SelectedValues="_selectedRoleIds" Label="Roles"
+                MultiSelection="true" Variant="Variant.Outlined" Class="mb-3"
+                ToStringFunc="@(id => _allRoles.FirstOrDefault(r => r.Id == id)?.Name ?? id.ToString())">
+                @foreach (var r in _allRoles) {
+                    <MudSelectItem Value="r.Id">@r.Name</MudSelectItem>
+                }
+            </MudSelect>
+            @if (User is not null) {
+                <MudCheckBox @bind-Value="_isActive" Label="Active" />
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public UserDto? User { get; set; }
+
+    private string _name = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private bool _isActive = true;
+    private IEnumerable<Guid> _selectedRoleIds = [];
+    private List<RoleDto> _allRoles = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var r = await Api.GetAsync<List<RoleDto>>("/api/roles");
+        if (r.Success && r.Data is not null) _allRoles = r.Data;
+
+        if (User is not null) {
+            _name = User.Name;
+            _email = User.Email;
+            _isActive = User.IsActive;
+            _selectedRoleIds = _allRoles
+                .Where(r => User.Roles.Contains(r.Name))
+                .Select(r => r.Id);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+
+        if (User is not null) {
+            var update = new { Name = _name, IsActive = _isActive };
+            var r1 = await Api.PutAsync<UserDto>($"/api/users/{User.Id}", update);
+            if (r1.Success) {
+                var r2 = await Api.PostAsync<object>($"/api/users/{User.Id}/roles",
+                    new { RoleIds = _selectedRoleIds.ToList() });
+                if (r2.Success) { Snackbar.Add("User updated.", Severity.Success); MudDialog.Close(); }
+            }
+        } else {
+            var create = new { Name = _name, Email = _email, Password = _password };
+            var r = await Api.PostAsync<UserDto>("/api/users", create);
+            if (r.Success) {
+                var r2 = await Api.PostAsync<object>($"/api/users/{r.Data!.Id}/roles",
+                    new { RoleIds = _selectedRoleIds.ToList() });
+                if (r2.Success) { Snackbar.Add("User created.", Severity.Success); MudDialog.Close(); }
+            }
+        }
+        _saving = false;
+    }
+}

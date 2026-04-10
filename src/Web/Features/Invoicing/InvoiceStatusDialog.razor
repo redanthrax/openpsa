@@ -1,0 +1,46 @@
+@using Contracts.Invoicing
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>Update Invoice Status</TitleContent>
+    <DialogContent>
+        <MudText Class="mb-4">Invoice: <strong>@Invoice.InvoiceNumber</strong></MudText>
+        <MudSelect @bind-Value="_status" Label="Status" Variant="Variant.Outlined" Class="mb-3">
+            @foreach (var s in Enum.GetValues<InvoiceStatus>()) {
+                <MudSelectItem Value="s">@s</MudSelectItem>
+            }
+        </MudSelect>
+        <MudNumericField @bind-Value="_amountPaid" Label="Amount Paid" Format="N2"
+            Variant="Variant.Outlined" Min="0m" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Update
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public InvoiceSummaryDto Invoice { get; set; } = null!;
+
+    private InvoiceStatus _status;
+    private decimal _amountPaid;
+    private bool _saving;
+
+    protected override void OnInitialized() {
+        _status = Invoice.Status;
+        _amountPaid = Invoice.Total - Invoice.AmountDue;
+    }
+
+    private async Task SaveAsync() {
+        _saving = true;
+        var r = await Api.PatchAsync<InvoiceDto>($"/api/invoices/{Invoice.Id}/status",
+            new { Status = _status, AmountPaid = _amountPaid });
+        if (r.Success) { Snackbar.Add("Invoice updated.", Severity.Success); MudDialog.Close(); }
+        _saving = false;
+    }
+}

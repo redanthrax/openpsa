@@ -1,0 +1,101 @@
+@using Contracts.Invoicing
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>New Invoice</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+                @bind-Value="_client" SearchFunc="SearchClientsAsync"
+                ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudDatePicker @bind-Date="_invoiceDate" Label="Invoice Date" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudDatePicker @bind-Date="_dueDate" Label="Due Date" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_notes" Label="Notes" Lines="2"
+                Variant="Variant.Outlined" Class="mb-4" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Line Items</MudText>
+            @foreach (var (item, i) in _lineItems.Select((x, i) => (x, i))) {
+                <MudGrid Class="mb-2" Spacing="1">
+                    <MudItem xs="5">
+                        <MudTextField @bind-Value="item.Description" Label="Description"
+                            Variant="Variant.Outlined" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="2">
+                        <MudNumericField @bind-Value="item.Quantity" Label="Qty"
+                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2" />
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudNumericField @bind-Value="item.UnitPrice" Label="Unit Price"
+                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2" />
+                    </MudItem>
+                    <MudItem xs="2" Class="d-flex align-center">
+                        <MudText Class="mr-2">@((item.Quantity * item.UnitPrice).ToString("C2"))</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                            Color="Color.Error" OnClick="@(() => RemoveItem(i))" />
+                    </MudItem>
+                </MudGrid>
+            }
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text"
+                OnClick="AddItem" Class="mt-1">Add Line Item</MudButton>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+            Disabled="_saving || !_valid || _lineItems.Count == 0">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Create Invoice
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private List<CreateInvoiceLineItemRequest> _lineItems = [];
+    private DateTime? _invoiceDate = DateTime.Today;
+    private DateTime? _dueDate = DateTime.Today.AddDays(30);
+    private string? _notes;
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var r = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (r.Success && r.Data is not null) _allClients = r.Data;
+        AddItem();
+    }
+
+    private void AddItem() => _lineItems.Add(new CreateInvoiceLineItemRequest { Quantity = 1 });
+    private void RemoveItem(int i) => _lineItems.RemoveAt(i);
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null || _invoiceDate is null || _dueDate is null) return;
+        _saving = true;
+        var req = new CreateInvoiceRequest {
+            ClientId = _client.Id,
+            InvoiceDate = _invoiceDate.Value,
+            DueDate = _dueDate.Value,
+            Notes = _notes,
+            LineItems = _lineItems
+        };
+        var r = await Api.PostAsync<InvoiceDto>("/api/invoices", req);
+        if (r.Success) { Snackbar.Add("Invoice created.", Severity.Success); MudDialog.Close(); }
+        _saving = false;
+    }
+}

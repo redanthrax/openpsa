@@ -1,0 +1,77 @@
+@using Contracts.Roles
+@using Contracts.Permissions
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(Role is not null ? "Edit Role" : "New Role")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_description" Label="Description"
+                Variant="Variant.Outlined" Class="mb-4" />
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Permissions</MudText>
+            @foreach (var group in _allPermissions.GroupBy(p => p.Category).OrderBy(g => g.Key)) {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 mb-1">@group.Key</MudText>
+                @foreach (var p in group) {
+                    <MudCheckBox @bind-Value="_selected[p.Key]" Label="@p.Name" Dense="true" />
+                }
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public RoleDto? Role { get; set; }
+
+    private string _name = string.Empty;
+    private string? _description;
+    private List<PermissionDto> _allPermissions = [];
+    private Dictionary<string, bool> _selected = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var r = await Api.GetAsync<List<PermissionDto>>("/api/permissions");
+        if (r.Success && r.Data is not null) {
+            _allPermissions = r.Data;
+            _selected = _allPermissions.ToDictionary(p => p.Key, p => false);
+        }
+
+        if (Role is not null) {
+            _name = Role.Name;
+            _description = Role.Description;
+            foreach (var p in Role.Permissions.Where(p => _selected.ContainsKey(p)))
+                _selected[p] = true;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+        var permissions = _selected.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+
+        if (Role is not null) {
+            var update = new UpdateRoleRequest { Name = _name, Description = _description, Permissions = permissions };
+            var r = await Api.PutAsync<RoleDto>($"/api/roles/{Role.Id}", update);
+            if (r.Success) { Snackbar.Add("Role updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var create = new { Name = _name, Description = _description, Permissions = permissions };
+            var r = await Api.PostAsync<RoleDto>("/api/roles", create);
+            if (r.Success) { Snackbar.Add("Role created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+}

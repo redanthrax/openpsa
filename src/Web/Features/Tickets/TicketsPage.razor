@@ -1,0 +1,114 @@
+@page "/tickets"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Tickets — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Tickets</MudText>
+    <HasPermission Permission="tickets.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Ticket</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Tickets.TicketSummaryDto" Items="_tickets" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Title" Title="Title" />
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                            @context.Item.Status
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Priority" Title="Priority">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@PriorityColor(context.Item.Priority)">
+                            @context.Item.Priority
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.AssignedToUserName" Title="Assigned To" />
+                <TemplateColumn Title="Due" SortBy="x => x.DueDate">
+                    <CellTemplate>
+                        @if (context.Item.DueDate.HasValue) {
+                            var overdue = context.Item.DueDate < DateTime.UtcNow &&
+                                context.Item.Status != Contracts.Tickets.TicketStatus.Resolved &&
+                                context.Item.Status != Contracts.Tickets.TicketStatus.Closed;
+                            <MudText Color="@(overdue ? Color.Error : Color.Default)">
+                                @context.Item.DueDate.Value.ToString("MMM d")
+                            </MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="tickets.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
+                        </HasPermission>
+                        <HasPermission Permission="tickets.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Title))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Tickets.TicketSummaryDto> _tickets = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Tickets.TicketSummaryDto>>("/api/tickets");
+        if (result.Success && result.Data is not null) _tickets = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<TicketDialog>("New Ticket");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Guid id) {
+        var param = new DialogParameters<TicketDialog> { { x => x.TicketId, id } };
+        var dialog = await Dialog.ShowAsync<TicketDialog>("Edit Ticket", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string title) {
+        var ok = await Dialog.ShowMessageBox("Delete Ticket",
+            $"Delete \"{title}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/tickets/{id}");
+        if (result.Success) { Snackbar.Add("Ticket deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color StatusColor(Contracts.Tickets.TicketStatus s) => s switch {
+        Contracts.Tickets.TicketStatus.New => Color.Default,
+        Contracts.Tickets.TicketStatus.Open or Contracts.Tickets.TicketStatus.InProgress => Color.Info,
+        Contracts.Tickets.TicketStatus.PendingCustomer => Color.Warning,
+        Contracts.Tickets.TicketStatus.Resolved or Contracts.Tickets.TicketStatus.Closed => Color.Success,
+        _ => Color.Default
+    };
+
+    private static Color PriorityColor(Contracts.Tickets.TicketPriority p) => p switch {
+        Contracts.Tickets.TicketPriority.Critical => Color.Error,
+        Contracts.Tickets.TicketPriority.High => Color.Warning,
+        Contracts.Tickets.TicketPriority.Medium => Color.Info,
+        _ => Color.Default
+    };
+}

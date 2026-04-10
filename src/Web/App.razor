@@ -1,0 +1,121 @@
+@using OpenPsa.Web.Services
+@using Microsoft.JSInterop
+@inject ThemeService ThemeService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <Layout.BaseLayout>
+                        <RedirectToLogin />
+                    </Layout.BaseLayout>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <Layout.BaseLayout>
+                <MudText Typo="Typo.h5" Class="mt-8 text-center">Page not found.</MudText>
+            </Layout.BaseLayout>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    private const string ThemePreferenceKey = "openpsa-theme";
+    private bool _isDarkMode;
+    private MudThemeProvider _mudThemeProvider = null!;
+
+    private readonly MudTheme _theme = new() {
+        PaletteLight = new PaletteLight {
+            Primary          = "#D400FF",
+            PrimaryDarken    = "#A000CC",
+            PrimaryLighten   = "#E040FB",
+            Secondary        = "#00F5FF",
+            Tertiary         = "#FF2D78",
+            Info             = "#00F5FF",
+            Success          = "#00FF9C",
+            Warning          = "#FFD600",
+            Error            = "#FF2D78",
+            AppbarBackground = "#1A002B",
+            AppbarText       = "#F0E6FF",
+            DrawerBackground = "#F3E6FF",
+            DrawerText       = "#1A002B",
+            Background       = "#FAF0FF",
+            Surface          = "#FFFFFF",
+            TextPrimary      = "#1A002B",
+            TextSecondary    = "#6D3B8A",
+            LinesDefault     = "#DDB8FF",
+            TableLines       = "#DDB8FF",
+            Divider          = "#DDB8FF"
+        },
+        PaletteDark = new PaletteDark {
+            Primary          = "#FF00FF",
+            PrimaryDarken    = "#CC00CC",
+            PrimaryLighten   = "#FF66FF",
+            Secondary        = "#00FFFF",
+            Tertiary         = "#FF2D78",
+            Info             = "#00FFFF",
+            Success          = "#00FF9C",
+            Warning          = "#FFD600",
+            Error            = "#FF2D78",
+            AppbarBackground = "#120022",
+            AppbarText       = "#FF00FF",
+            DrawerBackground = "#1A0030",
+            DrawerText       = "#E0AAFF",
+            Background       = "#06000F",
+            Surface          = "#1E0038",
+            TextPrimary      = "#F0E6FF",
+            TextSecondary    = "#C084FC",
+            LinesDefault     = "#3D0070",
+            TableLines       = "#3D0070",
+            Divider          = "#3D0070"
+        },
+        Typography = new Typography {
+            Default = new DefaultTypography {
+                FontFamily = ["Rajdhani", "Share Tech Mono", "monospace", "sans-serif"],
+                FontSize   = "1rem"
+            },
+            Body1 = new Body1Typography { FontSize = "1rem" },
+            Body2 = new Body2Typography { FontSize = "0.9rem" },
+            Button = new ButtonTypography { FontSize = "0.9375rem" },
+            Caption = new CaptionTypography { FontSize = "0.8125rem" },
+            Overline = new OverlineTypography { FontSize = "0.8125rem" },
+            H1 = new H1Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "6.125rem" },
+            H2 = new H2Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "3.875rem" },
+            H3 = new H3Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "3.125rem" },
+            H4 = new H4Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "2.25rem" },
+            H5 = new H5Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "1.625rem" },
+            H6 = new H6Typography { FontFamily = ["Share Tech Mono", "monospace"], FontSize = "1.375rem" }
+        }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
+
+        var saved = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", ThemePreferenceKey);
+        _isDarkMode = !string.IsNullOrEmpty(saved) && bool.TryParse(saved, out var v)
+            ? v
+            : await _mudThemeProvider.GetSystemDarkModeAsync();
+
+        ThemeService.Initialize(_isDarkMode);
+        ThemeService.OnThemeChanged += HandleThemeChanged;
+        StateHasChanged();
+    }
+
+    private async void HandleThemeChanged() {
+        _isDarkMode = ThemeService.IsDarkMode;
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", ThemePreferenceKey, _isDarkMode.ToString());
+        StateHasChanged();
+    }
+
+    public void Dispose() => ThemeService.OnThemeChanged -= HandleThemeChanged;
+}

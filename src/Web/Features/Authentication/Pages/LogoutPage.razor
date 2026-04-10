@@ -1,0 +1,15 @@
+@page "/logout"
+@attribute [AllowAnonymous]
+@inject ITokenStore TokenStore
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IUserPermissionService Permissions
+
+@code {
+    protected override async Task OnInitializedAsync() {
+        await TokenStore.ClearAsync();
+        Permissions.Reset();
+        AuthState.NotifyStateChanged();
+        Nav.NavigateTo("/login");
+    }
+}

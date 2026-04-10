@@ -1,0 +1,102 @@
+@page "/invoices"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Invoices — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Invoices</MudText>
+    <HasPermission Permission="invoices.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Invoice</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Invoicing.InvoiceSummaryDto" Items="_invoices" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.InvoiceNumber" Title="Number" />
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                            @context.Item.Status
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.InvoiceDate" Title="Date" Format="MMM d, yyyy" />
+                <PropertyColumn Property="x => x.DueDate" Title="Due" Format="MMM d, yyyy" />
+                <TemplateColumn Title="Total" SortBy="x => x.Total">
+                    <CellTemplate><MudText>@context.Item.Total.ToString("C2")</MudText></CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Balance Due" SortBy="x => x.AmountDue">
+                    <CellTemplate>
+                        <MudText Color="@(context.Item.AmountDue > 0 ? Color.Error : Color.Default)">
+                            @context.Item.AmountDue.ToString("C2")
+                        </MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                            Href="@($"/invoices/{context.Item.Id}")" />
+                        <HasPermission Permission="invoices.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenStatusDialog(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="invoices.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.InvoiceNumber))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Invoicing.InvoiceSummaryDto> _invoices = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Invoicing.InvoiceSummaryDto>>("/api/invoices");
+        if (result.Success && result.Data is not null) _invoices = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<InvoiceDialog>("New Invoice");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenStatusDialog(Contracts.Invoicing.InvoiceSummaryDto invoice) {
+        var param = new DialogParameters<InvoiceStatusDialog> { { x => x.Invoice, invoice } };
+        var dialog = await Dialog.ShowAsync<InvoiceStatusDialog>("Update Status", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string number) {
+        var ok = await Dialog.ShowMessageBox("Delete Invoice",
+            $"Delete invoice \"{number}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/invoices/{id}");
+        if (result.Success) { Snackbar.Add("Invoice deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color StatusColor(Contracts.Invoicing.InvoiceStatus s) => s switch {
+        Contracts.Invoicing.InvoiceStatus.Paid => Color.Success,
+        Contracts.Invoicing.InvoiceStatus.Sent or Contracts.Invoicing.InvoiceStatus.Viewed => Color.Info,
+        Contracts.Invoicing.InvoiceStatus.Overdue => Color.Error,
+        Contracts.Invoicing.InvoiceStatus.PartiallyPaid => Color.Warning,
+        Contracts.Invoicing.InvoiceStatus.Void => Color.Default,
+        _ => Color.Default
+    };
+}

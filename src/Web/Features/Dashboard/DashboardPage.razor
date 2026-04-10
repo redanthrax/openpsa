@@ -1,0 +1,158 @@
+@page "/"
+@inject IApiClient Api
+@inject IUserPermissionService PermissionService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Dashboard — OpenPsa</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Dashboard</MudText>
+
+@if (_loading) {
+    <MudGrid>
+        @for (var i = 0; i < 6; i++) {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard><MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px" Class="mb-2" />
+                    <MudSkeleton Width="80px" Height="40px" Class="mb-1" />
+                    <MudSkeleton Width="100px" Height="20px" />
+                </MudCardContent></MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+} else if (_stats is not null) {
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Style="cursor:pointer" @onclick='() => Nav.NavigateTo("/clients")'>
+                <MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h3" Color="Color.Primary">@_stats.TotalClients</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Active Clients</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Style="cursor:pointer" @onclick='() => Nav.NavigateTo("/projects")'>
+                <MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Color="Color.Info" Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h3" Color="Color.Info">@_stats.ActiveProjects</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Active Projects</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Style="cursor:pointer" @onclick='() => Nav.NavigateTo("/tickets")'>
+                <MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Color="Color.Warning" Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h3" Color="Color.Warning">@_stats.OpenTickets</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        Open Tickets
+                        @if (_stats.OverdueTickets > 0) {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Class="ml-1">@_stats.OverdueTickets overdue</MudChip>
+                        }
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Style="cursor:pointer" @onclick='() => Nav.NavigateTo("/time-entries")'>
+                <MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Color="Color.Tertiary" Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h3" Color="Color.Tertiary">@_stats.UnbilledHours.ToString("N1")</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Unbilled Hours</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Style="cursor:pointer" @onclick='() => Nav.NavigateTo("/invoices")'>
+                <MudCardContent Class="d-flex flex-column align-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Success" Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h3" Color="Color.Success">@_stats.OutstandingInvoices.ToString("C0")</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Outstanding Invoices</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-4">
+        <MudItem xs="12">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Style="vertical-align:middle" />
+                            Recent Activity
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (_stats.RecentActivity.Count > 0) {
+                        <MudList T="Contracts.Dashboard.RecentActivityDto" Dense="true">
+                            @foreach (var a in _stats.RecentActivity) {
+                                <MudListItem>
+                                    <div class="d-flex justify-space-between align-center" style="width:100%">
+                                        <div>
+                                            <MudChip T="string" Size="Size.Small" Color="@ActionColor(a.Action)" Variant="Variant.Outlined">
+                                                @a.Action
+                                            </MudChip>
+                                            <MudText Typo="Typo.body2" Class="d-inline ml-2">@a.Description</MudText>
+                                        </div>
+                                        <div class="text-right">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@a.UserName</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-2">@TimeAgo(a.CreatedAt)</MudText>
+                                        </div>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    } else {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="text-center py-4">No recent activity</MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private Contracts.Dashboard.DashboardStatsDto? _stats;
+    private bool _loading = true;
+
+    protected override void OnInitialized() =>
+        PermissionService.OnPermissionsChanged += OnPermissionsChanged;
+
+    protected override async Task OnInitializedAsync() {
+        if (PermissionService.IsInitialized) await LoadAsync();
+    }
+
+    private async void OnPermissionsChanged() {
+        await InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+    }
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<Contracts.Dashboard.DashboardStatsDto>("/api/dashboard/stats");
+        if (result.Success) _stats = result.Data;
+        _loading = false;
+    }
+
+    private static Color ActionColor(string action) => action switch {
+        "Created" => Color.Success,
+        "Updated" => Color.Info,
+        "Deleted" => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string TimeAgo(DateTime dt) {
+        var ts = DateTime.UtcNow - dt;
+        return ts switch {
+            { TotalMinutes: < 1 } => "just now",
+            { TotalMinutes: < 60 } => $"{(int)ts.TotalMinutes}m ago",
+            { TotalHours: < 24 } => $"{(int)ts.TotalHours}h ago",
+            { TotalDays: < 7 } => $"{(int)ts.TotalDays}d ago",
+            _ => dt.ToString("MMM d")
+        };
+    }
+
+    public void Dispose() => PermissionService.OnPermissionsChanged -= OnPermissionsChanged;
+}

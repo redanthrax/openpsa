@@ -1,0 +1,39 @@
+@inject IUserPermissionService PermissionService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
+@implements IDisposable
+
+@ChildContent
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync() {
+        AuthState.AuthenticationStateChanged += OnAuthChanged;
+        await TryInitAsync();
+    }
+
+    private async void OnAuthChanged(Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState> task) {
+        var state = await task;
+        if (state.User.Identity?.IsAuthenticated == true) {
+            PermissionService.Reset();
+            _initialized = false;
+            await TryInitAsync();
+        } else {
+            PermissionService.Reset();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TryInitAsync() {
+        if (_initialized) return;
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true) {
+            await PermissionService.InitializeAsync();
+            _initialized = true;
+        }
+    }
+
+    public void Dispose() => AuthState.AuthenticationStateChanged -= OnAuthChanged;
+}

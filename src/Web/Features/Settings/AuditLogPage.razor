@@ -1,0 +1,48 @@
+@page "/settings/audit"
+@inject IApiClient Api
+
+<PageTitle>Audit Log — OpenPsa</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Audit Log</MudText>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Audit.AuditEntryDto" Items="_entries" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.CreatedAt" Title="Time" Format="MMM d, yyyy HH:mm" />
+                <PropertyColumn Property="x => x.UserName" Title="User" />
+                <PropertyColumn Property="x => x.Action" Title="Action">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@ActionColor(context.Item.Action)">
+                            @context.Item.Action
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.EntityName" Title="Entity" />
+                <PropertyColumn Property="x => x.EntityId" Title="Entity ID" />
+                <PropertyColumn Property="x => x.ChangedProperties" Title="Changed Fields" />
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Audit.AuditEntryDto> _entries = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Audit.AuditEntryDto>>("/api/audit");
+        if (result.Success && result.Data is not null) _entries = result.Data;
+        _loading = false;
+    }
+
+    private static Color ActionColor(string action) => action switch {
+        "Created" => Color.Success,
+        "Updated" => Color.Info,
+        "Deleted" => Color.Error,
+        _ => Color.Default
+    };
+}

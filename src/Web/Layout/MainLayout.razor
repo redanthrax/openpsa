@@ -1,0 +1,26 @@
+@using OpenPsa.Web.Layout
+@inherits LayoutComponentBase
+@inject IUserPermissionService PermissionService
+@implements IDisposable
+
+<PermissionProvider>
+    <MudLayout>
+        <AppBar OnToggleDrawer="ToggleDrawer" />
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</PermissionProvider>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    public void Dispose() { }
+}

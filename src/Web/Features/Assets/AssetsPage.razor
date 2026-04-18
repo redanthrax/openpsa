@@ -1,0 +1,123 @@
+@page "/assets"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Assets — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Assets</MudText>
+    <HasPermission Permission="assets.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Asset</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Assets.AssetSummaryDto" Items="_assets" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.Type" Title="Type">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@TypeColor(context.Item.Type)">
+                            @FormatType(context.Item.Type)
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                            @context.Item.Status
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Manufacturer" Title="Manufacturer" />
+                <PropertyColumn Property="x => x.Model" Title="Model" />
+                <PropertyColumn Property="x => x.SerialNumber" Title="Serial #" />
+                <PropertyColumn Property="x => x.WarrantyExpiry" Title="Warranty" Format="MMM d, yyyy">
+                    <CellTemplate>
+                        @if (context.Item.WarrantyExpiry.HasValue) {
+                            var expired = context.Item.WarrantyExpiry.Value < DateTime.Today;
+                            <MudText Color="@(expired ? Color.Error : Color.Default)">
+                                @context.Item.WarrantyExpiry.Value.ToString("MMM d, yyyy")
+                            </MudText>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="assets.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="assets.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Assets.AssetSummaryDto> _assets = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Assets.AssetSummaryDto>>("/api/assets");
+        if (result.Success && result.Data is not null) _assets = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<AssetDialog>("New Asset",
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Contracts.Assets.AssetSummaryDto asset) {
+        var param = new DialogParameters<AssetDialog> { { x => x.AssetId, asset.Id } };
+        var dialog = await Dialog.ShowAsync<AssetDialog>("Edit Asset", param,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Asset",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/assets/{id}");
+        if (result.Success) { Snackbar.Add("Asset deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color TypeColor(Contracts.Assets.AssetType t) => t switch {
+        Contracts.Assets.AssetType.Server => Color.Error,
+        Contracts.Assets.AssetType.NetworkDevice => Color.Info,
+        Contracts.Assets.AssetType.Workstation or Contracts.Assets.AssetType.Laptop => Color.Primary,
+        Contracts.Assets.AssetType.SoftwareLicense => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static string FormatType(Contracts.Assets.AssetType t) => t switch {
+        Contracts.Assets.AssetType.NetworkDevice => "Network",
+        Contracts.Assets.AssetType.SoftwareLicense => "Software",
+        Contracts.Assets.AssetType.MobileDevice => "Mobile",
+        _ => t.ToString()
+    };
+
+    private static Color StatusColor(Contracts.Assets.AssetStatus s) => s switch {
+        Contracts.Assets.AssetStatus.Deployed => Color.Success,
+        Contracts.Assets.AssetStatus.InRepair => Color.Warning,
+        Contracts.Assets.AssetStatus.Retired or Contracts.Assets.AssetStatus.Disposed => Color.Default,
+        _ => Color.Info
+    };
+}

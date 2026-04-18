@@ -17,5 +17,10 @@
     <Project Path="src/Modules/Security/Security.csproj" />
     <Project Path="src/Modules/Settings/Settings.csproj" />
     <Project Path="src/Modules/Dashboard/Dashboard.csproj" />
+    <Project Path="src/Modules/Agreements/Agreements.csproj" />
+    <Project Path="src/Modules/Sla/Sla.csproj" />
+    <Project Path="src/Modules/Email/Email.csproj" />
+    <Project Path="src/Modules/Assets/Assets.csproj" />
+    <Project Path="src/Modules/Expenses/Expenses.csproj" />
   </Folder>
 </Solution>

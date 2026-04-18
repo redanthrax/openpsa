@@ -1,0 +1,86 @@
+@using Contracts.Tickets
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(Queue is not null ? "Edit Queue" : "New Queue")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_description" Label="Description"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudSelect @bind-Value="_strategy" Label="Assignment Strategy" Variant="Variant.Outlined" Class="mb-3">
+                @foreach (var s in Enum.GetValues<TicketQueueAssignmentStrategy>()) {
+                    <MudSelectItem Value="s">@FormatStrategy(s)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudNumericField @bind-Value="_sortOrder" Label="Sort Order"
+                Variant="Variant.Outlined" Class="mb-3" />
+            @if (Queue is not null) {
+                <MudSwitch @bind-Value="_isActive" Label="Active" Color="Color.Primary" />
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public TicketQueueDto? Queue { get; set; }
+
+    private string _name = string.Empty;
+    private string? _description;
+    private TicketQueueAssignmentStrategy _strategy = TicketQueueAssignmentStrategy.Manual;
+    private int _sortOrder;
+    private bool _isActive = true;
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override void OnInitialized() {
+        if (Queue is not null) {
+            _name = Queue.Name;
+            _description = Queue.Description;
+            _strategy = Queue.AssignmentStrategy;
+            _sortOrder = Queue.SortOrder;
+            _isActive = Queue.IsActive;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+
+        if (Queue is not null) {
+            var update = new UpdateTicketQueueRequest {
+                Name = _name, Description = _description,
+                AssignmentStrategy = _strategy, SortOrder = _sortOrder, IsActive = _isActive
+            };
+            var r = await Api.PutAsync<TicketQueueDto>($"/api/ticket-queues/{Queue.Id}", update);
+            if (r.Success) { Snackbar.Add("Queue updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var create = new CreateTicketQueueRequest {
+                Name = _name, Description = _description,
+                AssignmentStrategy = _strategy, SortOrder = _sortOrder
+            };
+            var r = await Api.PostAsync<TicketQueueDto>("/api/ticket-queues", create);
+            if (r.Success) { Snackbar.Add("Queue created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+
+    private static string FormatStrategy(TicketQueueAssignmentStrategy s) => s switch {
+        TicketQueueAssignmentStrategy.RoundRobin => "Round Robin",
+        TicketQueueAssignmentStrategy.LeastBusy => "Least Busy",
+        _ => "Manual"
+    };
+}

@@ -67,6 +67,9 @@ serilog*.json
 postgres-data/
 redis-data/
 
+# DataProtection keys
+.keys/
+
 # Test results
 TestResults/
 coverage/

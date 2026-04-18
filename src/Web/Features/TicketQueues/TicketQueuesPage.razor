@@ -1,0 +1,100 @@
+@page "/ticket-queues"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Ticket Queues — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Ticket Queues</MudText>
+    <HasPermission Permission="ticket-queues.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Queue</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Tickets.TicketQueueDto" Items="_queues" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.Description" Title="Description" />
+                <PropertyColumn Property="x => x.AssignmentStrategy" Title="Assignment">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StrategyColor(context.Item.AssignmentStrategy)">
+                            @FormatStrategy(context.Item.AssignmentStrategy)
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.OpenTicketCount" Title="Open Tickets" />
+                <PropertyColumn Property="x => x.IsActive" Title="Active">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small"
+                            Color="@(context.Item.IsActive ? Color.Success : Color.Default)">
+                            @(context.Item.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="ticket-queues.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="ticket-queues.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Tickets.TicketQueueDto> _queues = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Tickets.TicketQueueDto>>("/api/ticket-queues");
+        if (result.Success && result.Data is not null) _queues = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<TicketQueueDialog>("New Queue");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Contracts.Tickets.TicketQueueDto queue) {
+        var param = new DialogParameters<TicketQueueDialog> { { x => x.Queue, queue } };
+        var dialog = await Dialog.ShowAsync<TicketQueueDialog>("Edit Queue", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Queue",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/ticket-queues/{id}");
+        if (result.Success) { Snackbar.Add("Queue deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color StrategyColor(Contracts.Tickets.TicketQueueAssignmentStrategy s) => s switch {
+        Contracts.Tickets.TicketQueueAssignmentStrategy.RoundRobin => Color.Info,
+        Contracts.Tickets.TicketQueueAssignmentStrategy.LeastBusy => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static string FormatStrategy(Contracts.Tickets.TicketQueueAssignmentStrategy s) => s switch {
+        Contracts.Tickets.TicketQueueAssignmentStrategy.RoundRobin => "Round Robin",
+        Contracts.Tickets.TicketQueueAssignmentStrategy.LeastBusy => "Least Busy",
+        _ => "Manual"
+    };
+}

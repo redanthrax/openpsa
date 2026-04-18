@@ -1,0 +1,157 @@
+@using Contracts.Agreements
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(AgreementId.HasValue ? "Edit Agreement" : "New Agreement")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_model.Name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+                @bind-Value="_client" SearchFunc="SearchClientsAsync"
+                ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                Variant="Variant.Outlined" Class="mb-3" Disabled="AgreementId.HasValue" />
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudSelect @bind-Value="_model.Type" Label="Type" Variant="Variant.Outlined">
+                        @foreach (var t in Enum.GetValues<AgreementType>()) {
+                            <MudSelectItem Value="t">@FormatType(t)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6">
+                    @if (AgreementId.HasValue) {
+                        <MudSelect @bind-Value="_updateStatus" Label="Status" Variant="Variant.Outlined">
+                            @foreach (var s in Enum.GetValues<AgreementStatus>()) {
+                                <MudSelectItem Value="s">@s</MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+                </MudItem>
+            </MudGrid>
+            <MudGrid Class="mt-3">
+                <MudItem xs="6">
+                    <MudDatePicker @bind-Date="_startDate" Label="Start Date" Required="true"
+                        Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudDatePicker @bind-Date="_endDate" Label="End Date" Required="true"
+                        Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudGrid Class="mt-3">
+                <MudItem xs="4">
+                    <MudNumericField @bind-Value="_model.MonthlyAmount" Label="Monthly Amount"
+                        Variant="Variant.Outlined" Format="N2" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField @bind-Value="_model.TotalValue" Label="Total Value"
+                        Variant="Variant.Outlined" Format="N2" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField @bind-Value="_model.HourlyRate" Label="Hourly Rate"
+                        Variant="Variant.Outlined" Format="N2" />
+                </MudItem>
+            </MudGrid>
+            <MudGrid Class="mt-3">
+                <MudItem xs="6">
+                    <MudNumericField @bind-Value="_model.BlockHoursTotal" Label="Block Hours"
+                        Variant="Variant.Outlined" Format="N1" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField @bind-Value="_model.RenewalNoticeDays" Label="Renewal Notice (days)"
+                        Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="_model.Description" Label="Description" Lines="3"
+                Variant="Variant.Outlined" Class="mt-3" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || !_valid">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid? AgreementId { get; set; }
+
+    private readonly CreateAgreementRequest _model = new();
+    private AgreementStatus _updateStatus = AgreementStatus.Draft;
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private DateTime? _startDate = DateTime.Today;
+    private DateTime? _endDate = DateTime.Today.AddYears(1);
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) _allClients = cr.Data;
+
+        if (AgreementId.HasValue) {
+            var r = await Api.GetAsync<AgreementDto>($"/api/agreements/{AgreementId}");
+            if (r.Success && r.Data is not null) {
+                _model.Name = r.Data.Name;
+                _model.Description = r.Data.Description;
+                _model.Type = r.Data.Type;
+                _updateStatus = r.Data.Status;
+                _startDate = r.Data.StartDate;
+                _endDate = r.Data.EndDate;
+                _model.MonthlyAmount = r.Data.MonthlyAmount;
+                _model.TotalValue = r.Data.TotalValue;
+                _model.BlockHoursTotal = r.Data.BlockHoursTotal;
+                _model.HourlyRate = r.Data.HourlyRate;
+                _model.RenewalNoticeDays = r.Data.RenewalNoticeDays;
+                _client = _allClients.FirstOrDefault(c => c.Id == r.Data.ClientId);
+            }
+        }
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null || _startDate is null || _endDate is null) return;
+        _saving = true;
+        _model.ClientId = _client.Id;
+        _model.StartDate = _startDate.Value;
+        _model.EndDate = _endDate.Value;
+
+        if (AgreementId.HasValue) {
+            var update = new UpdateAgreementRequest {
+                Name = _model.Name, Description = _model.Description,
+                Type = _model.Type, Status = _updateStatus,
+                StartDate = _model.StartDate, EndDate = _model.EndDate,
+                MonthlyAmount = _model.MonthlyAmount, TotalValue = _model.TotalValue,
+                BlockHoursTotal = _model.BlockHoursTotal, HourlyRate = _model.HourlyRate,
+                RenewalNoticeDays = _model.RenewalNoticeDays
+            };
+            var r = await Api.PutAsync<AgreementDto>($"/api/agreements/{AgreementId}", update);
+            if (r.Success) { Snackbar.Add("Agreement updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var r = await Api.PostAsync<AgreementDto>("/api/agreements", _model);
+            if (r.Success) { Snackbar.Add("Agreement created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+
+    private static string FormatType(AgreementType t) => t switch {
+        AgreementType.TimeAndMaterials => "T&M",
+        AgreementType.FixedFee => "Fixed Fee",
+        AgreementType.BlockHours => "Block Hours",
+        _ => t.ToString()
+    };
+}

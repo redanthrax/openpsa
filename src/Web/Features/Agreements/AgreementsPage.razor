@@ -1,0 +1,127 @@
+@page "/agreements"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Agreements — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Agreements</MudText>
+    <HasPermission Permission="agreements.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Agreement</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Agreements.AgreementSummaryDto" Items="_agreements" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.ClientName" Title="Client" />
+                <PropertyColumn Property="x => x.Type" Title="Type">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@TypeColor(context.Item.Type)">
+                            @FormatType(context.Item.Type)
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                            @context.Item.Status
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.StartDate" Title="Start" Format="MMM d, yyyy" />
+                <PropertyColumn Property="x => x.EndDate" Title="End" Format="MMM d, yyyy" />
+                <TemplateColumn Title="Monthly" SortBy="x => x.MonthlyAmount">
+                    <CellTemplate>
+                        @if (context.Item.MonthlyAmount.HasValue) {
+                            <MudText>@context.Item.MonthlyAmount.Value.ToString("C2")</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Block Hours" SortBy="x => x.BlockHoursRemaining">
+                    <CellTemplate>
+                        @if (context.Item.BlockHoursRemaining.HasValue) {
+                            <MudText Color="@(context.Item.BlockHoursRemaining <= 0 ? Color.Error : Color.Default)">
+                                @context.Item.BlockHoursRemaining.Value.ToString("N1") hrs
+                            </MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="agreements.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
+                        </HasPermission>
+                        <HasPermission Permission="agreements.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Agreements.AgreementSummaryDto> _agreements = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Agreements.AgreementSummaryDto>>("/api/agreements");
+        if (result.Success && result.Data is not null) _agreements = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<AgreementDialog>("New Agreement");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Guid id) {
+        var param = new DialogParameters<AgreementDialog> { { x => x.AgreementId, id } };
+        var dialog = await Dialog.ShowAsync<AgreementDialog>("Edit Agreement", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Agreement",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/agreements/{id}");
+        if (result.Success) { Snackbar.Add("Agreement deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color StatusColor(Contracts.Agreements.AgreementStatus s) => s switch {
+        Contracts.Agreements.AgreementStatus.Active => Color.Success,
+        Contracts.Agreements.AgreementStatus.Draft => Color.Default,
+        Contracts.Agreements.AgreementStatus.Expiring => Color.Warning,
+        Contracts.Agreements.AgreementStatus.Expired => Color.Error,
+        Contracts.Agreements.AgreementStatus.Cancelled => Color.Dark,
+        _ => Color.Default
+    };
+
+    private static Color TypeColor(Contracts.Agreements.AgreementType t) => t switch {
+        Contracts.Agreements.AgreementType.Retainer => Color.Primary,
+        Contracts.Agreements.AgreementType.BlockHours => Color.Info,
+        Contracts.Agreements.AgreementType.FixedFee => Color.Secondary,
+        _ => Color.Default
+    };
+
+    private static string FormatType(Contracts.Agreements.AgreementType t) => t switch {
+        Contracts.Agreements.AgreementType.TimeAndMaterials => "T&M",
+        Contracts.Agreements.AgreementType.FixedFee => "Fixed Fee",
+        Contracts.Agreements.AgreementType.BlockHours => "Block Hours",
+        _ => t.ToString()
+    };
+}

@@ -7,10 +7,16 @@
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h5">Invoices</MudText>
-    <HasPermission Permission="invoices.create">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New Invoice</MudButton>
-    </HasPermission>
+    <div class="d-flex gap-2">
+        <HasPermission Permission="invoices.create">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Timer"
+                OnClick="OpenGenerateFromTimeDialog">Generate from Time</MudButton>
+        </HasPermission>
+        <HasPermission Permission="invoices.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                OnClick="OpenCreateDialog">New Invoice</MudButton>
+        </HasPermission>
+    </div>
 </div>
 
 <MudCard>
@@ -74,6 +80,12 @@
 
     private async Task OpenCreateDialog() {
         var dialog = await Dialog.ShowAsync<InvoiceDialog>("New Invoice");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenGenerateFromTimeDialog() {
+        var dialog = await Dialog.ShowAsync<GenerateInvoiceDialog>("Generate Invoice from Time Entries",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
         if (!(await dialog.Result).Canceled) await LoadAsync();
     }
 

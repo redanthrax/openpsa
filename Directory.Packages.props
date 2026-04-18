@@ -46,5 +46,7 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.3.0" />
     <PackageVersion Include="Markdig" Version="0.40.0" />
+    <PackageVersion Include="MailKit" Version="4.12.1" />
+    <PackageVersion Include="Microsoft.Graph" Version="5.103.0" />
   </ItemGroup>
 </Project>

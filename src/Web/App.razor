@@ -14,17 +14,17 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
                 <NotAuthorized>
-                    <Layout.BaseLayout>
+                    <BaseLayout>
                         <RedirectToLogin />
-                    </Layout.BaseLayout>
+                    </BaseLayout>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <Layout.BaseLayout>
+            <BaseLayout>
                 <MudText Typo="Typo.h5" Class="mt-8 text-center">Page not found.</MudText>
-            </Layout.BaseLayout>
+            </BaseLayout>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>

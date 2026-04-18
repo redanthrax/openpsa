@@ -24,7 +24,7 @@ public class GetCurrentUserEndpoint : IEndpointFeature {
                 return Results.Unauthorized();
 
             var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == userId, ct);
-            if (user == null) return Results.NotFound();
+            if (user == null) return Results.Unauthorized();
 
             var roles = await db.Set<Role>()
                 .Where(r => user.RoleIds.Contains(r.Id))

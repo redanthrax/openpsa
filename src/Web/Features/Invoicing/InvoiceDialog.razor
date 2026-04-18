@@ -23,15 +23,15 @@
                 <MudGrid Class="mb-2" Spacing="1">
                     <MudItem xs="5">
                         <MudTextField @bind-Value="item.Description" Label="Description"
-                            Variant="Variant.Outlined" Dense="true" />
+                            Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="2">
                         <MudNumericField @bind-Value="item.Quantity" Label="Qty"
-                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2" />
+                            Variant="Variant.Outlined" Margin="Margin.Dense" Min="0m" Format="N2" />
                     </MudItem>
                     <MudItem xs="3">
                         <MudNumericField @bind-Value="item.UnitPrice" Label="Unit Price"
-                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2" />
+                            Variant="Variant.Outlined" Margin="Margin.Dense" Min="0m" Format="N2" />
                     </MudItem>
                     <MudItem xs="2" Class="d-flex align-center">
                         <MudText Class="mr-2">@((item.Quantity * item.UnitPrice).ToString("C2"))</MudText>

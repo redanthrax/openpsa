@@ -12,6 +12,9 @@ public class Ticket : BaseEntity {
     public Guid ClientId { get; set; }
     public Guid? ProjectId { get; set; }
     public string? AssignedToUserId { get; set; }
+    public Guid? QueueId { get; set; }
+    public Guid? ContractId { get; set; }
     public DateTime? DueDate { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public DateTime? FirstResponseAt { get; set; }
 }

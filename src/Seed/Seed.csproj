@@ -30,6 +30,12 @@
     <ProjectReference Include="..\Modules\Settings\Settings.csproj" />
     <ProjectReference Include="..\Modules\Dashboard\Dashboard.csproj" />
     <ProjectReference Include="..\Modules\Security\Security.csproj" />
+    <ProjectReference Include="..\Modules\Agreements\Agreements.csproj" />
+    <ProjectReference Include="..\Modules\Sla\Sla.csproj" />
+    <ProjectReference Include="..\Modules\Assets\Assets.csproj" />
+    <ProjectReference Include="..\Modules\Email\Email.csproj" />
+    <ProjectReference Include="..\Modules\Expenses\Expenses.csproj" />
+    <ProjectReference Include="..\Api\Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

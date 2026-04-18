@@ -1,0 +1,84 @@
+@page "/rate-cards"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Rate Cards — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Rate Cards</MudText>
+    <HasPermission Permission="rate-cards.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Rate Card</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.TimeEntries.RateCardDto" Items="_rateCards" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <TemplateColumn Title="Client" SortBy="x => x.ClientName">
+                    <CellTemplate>
+                        <MudText>@(context.Item.ClientName ?? "Global")</MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.IsDefault" Title="Default">
+                    <CellTemplate>
+                        @if (context.Item.IsDefault) {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">Default</MudChip>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Entries.Count" Title="Rates" />
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="rate-cards.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
+                        </HasPermission>
+                        <HasPermission Permission="rate-cards.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.TimeEntries.RateCardDto> _rateCards = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.TimeEntries.RateCardDto>>("/api/rate-cards");
+        if (result.Success && result.Data is not null) _rateCards = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<RateCardDialog>("New Rate Card");
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Guid id) {
+        var param = new DialogParameters<RateCardDialog> { { x => x.RateCardId, id } };
+        var dialog = await Dialog.ShowAsync<RateCardDialog>("Edit Rate Card", param);
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Rate Card",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/rate-cards/{id}");
+        if (result.Success) { Snackbar.Add("Rate card deleted.", Severity.Success); await LoadAsync(); }
+    }
+}

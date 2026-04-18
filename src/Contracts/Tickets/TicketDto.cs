@@ -13,8 +13,13 @@ public class TicketDto {
     public string? ProjectName { get; set; }
     public string? AssignedToUserId { get; set; }
     public string? AssignedToUserName { get; set; }
+    public Guid? QueueId { get; set; }
+    public string? QueueName { get; set; }
+    public Guid? ContractId { get; set; }
+    public string? ContractName { get; set; }
     public DateTime? DueDate { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public DateTime? FirstResponseAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

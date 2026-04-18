@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
+using System.Text;
 
 namespace OpenPsa.Modules.Authentication.Services;
 
 public static class PasswordHasher {
     public static string Hash(string password) {
         var salt = RandomNumberGenerator.GetBytes(16);
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        var hash = pbkdf2.GetBytes(32);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, 100_000, HashAlgorithmName.SHA256, 32);
         var result = new byte[48];
         salt.CopyTo(result, 0);
         hash.CopyTo(result, 16);
@@ -17,8 +18,8 @@ public static class PasswordHasher {
         var bytes = Convert.FromBase64String(hash);
         var salt = bytes[..16];
         var stored = bytes[16..];
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        var computed = pbkdf2.GetBytes(32);
+        var computed = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, 100_000, HashAlgorithmName.SHA256, 32);
         return CryptographicOperations.FixedTimeEquals(computed, stored);
     }
 }

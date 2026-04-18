@@ -7,5 +7,6 @@ namespace OpenPsa.Modules.Clients;
 public class ClientsModule : IModule {
     public void RegisterPermissions(IPermissionRegistry registry) {
         registry.RegisterCrudPermissions("clients", "Clients", "Clients");
+        registry.RegisterCrudPermissions("sites", "Sites", "Clients");
     }
 }

@@ -1,0 +1,124 @@
+@page "/mailbox-connections"
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<PageTitle>Mailbox Connections — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Mailbox Connections</MudText>
+    <HasPermission Permission="mailbox-connections.create">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">New Connection</MudButton>
+    </HasPermission>
+</div>
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudDataGrid T="Contracts.Email.MailboxConnectionSummaryDto" Items="_connections" Loading="_loading"
+            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.EmailAddress" Title="Email" />
+                <PropertyColumn Property="x => x.Provider" Title="Provider">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@ProviderColor(context.Item.Provider)">
+                            @FormatProvider(context.Item.Provider)
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                            @context.Item.Status
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.MessageCount" Title="Messages" />
+                <PropertyColumn Property="x => x.LastPollAt" Title="Last Poll" Format="MMM d, HH:mm" />
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <HasPermission Permission="mailbox-connections.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.NetworkCheck" Size="Size.Small"
+                                Color="Color.Info" OnClick="@(() => TestConnectionAsync(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="mailbox-connections.update">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                OnClick="@(() => OpenEditDialog(context.Item))" />
+                        </HasPermission>
+                        <HasPermission Permission="mailbox-connections.delete">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
+                        </HasPermission>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private List<Contracts.Email.MailboxConnectionSummaryDto> _connections = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<List<Contracts.Email.MailboxConnectionSummaryDto>>("/api/mailbox-connections");
+        if (result.Success && result.Data is not null) _connections = result.Data;
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await Dialog.ShowAsync<MailboxConnectionDialog>("New Mailbox Connection",
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(Contracts.Email.MailboxConnectionSummaryDto connection) {
+        var param = new DialogParameters<MailboxConnectionDialog> { { x => x.ConnectionId, connection.Id } };
+        var dialog = await Dialog.ShowAsync<MailboxConnectionDialog>("Edit Mailbox Connection", param,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        if (!(await dialog.Result).Canceled) await LoadAsync();
+    }
+
+    private async Task TestConnectionAsync(Contracts.Email.MailboxConnectionSummaryDto connection) {
+        Snackbar.Add("Testing connection...", Severity.Info);
+        var result = await Api.PostAsync<Contracts.Email.TestMailboxConnectionResult>(
+            $"/api/mailbox-connections/{connection.Id}/test", new { });
+        if (result.Success && result.Data is not null) {
+            if (result.Data.Success)
+                Snackbar.Add($"Connection OK. {result.Data.MailboxInfo}", Severity.Success);
+            else
+                Snackbar.Add($"Test failed: {result.Data.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync(Guid id, string name) {
+        var ok = await Dialog.ShowMessageBox("Delete Mailbox Connection",
+            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var result = await Api.DeleteAsync<object>($"/api/mailbox-connections/{id}");
+        if (result.Success) { Snackbar.Add("Connection deleted.", Severity.Success); await LoadAsync(); }
+    }
+
+    private static Color ProviderColor(Contracts.Email.MailboxProvider p) => p switch {
+        Contracts.Email.MailboxProvider.MicrosoftGraph => Color.Info,
+        Contracts.Email.MailboxProvider.Imap => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static string FormatProvider(Contracts.Email.MailboxProvider p) => p switch {
+        Contracts.Email.MailboxProvider.MicrosoftGraph => "Microsoft 365",
+        Contracts.Email.MailboxProvider.Imap => "IMAP/SMTP",
+        _ => p.ToString()
+    };
+
+    private static Color StatusColor(Contracts.Email.MailboxConnectionStatus s) => s switch {
+        Contracts.Email.MailboxConnectionStatus.Active => Color.Success,
+        Contracts.Email.MailboxConnectionStatus.Error => Color.Error,
+        _ => Color.Default
+    };
+}

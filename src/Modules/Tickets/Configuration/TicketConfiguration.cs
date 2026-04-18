@@ -16,5 +16,7 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket> {
         builder.HasIndex(t => t.Status);
         builder.HasIndex(t => t.Priority);
         builder.HasIndex(t => t.AssignedToUserId);
+        builder.HasIndex(t => t.QueueId);
+        builder.HasIndex(t => t.ContractId);
     }
 }

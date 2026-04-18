@@ -1,0 +1,116 @@
+@using Contracts.TimeEntries
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>@(RateCardId.HasValue ? "Edit Rate Card" : "New Rate Card")</TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_valid">
+            <MudTextField @bind-Value="_name" Label="Name" Required="true"
+                Variant="Variant.Outlined" Class="mb-3" />
+            <MudAutocomplete T="ClientSummaryDto" Label="Client (optional — leave blank for global)"
+                @bind-Value="_client" SearchFunc="SearchClientsAsync"
+                ToStringFunc="@(c => c?.Name ?? string.Empty)"
+                Variant="Variant.Outlined" Class="mb-3" Disabled="RateCardId.HasValue" />
+            <MudSwitch @bind-Value="_isDefault" Label="Default Rate Card" Color="Color.Primary" Class="mb-4" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Rate Entries</MudText>
+            @foreach (var (entry, i) in _entries.Select((x, i) => (x, i))) {
+                <MudGrid Class="mb-2" Spacing="1">
+                    <MudItem xs="4">
+                        <MudTextField @bind-Value="entry.ServiceType" Label="Service Type"
+                            Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudNumericField @bind-Value="entry.HourlyRate" Label="Hourly Rate"
+                            Variant="Variant.Outlined" Margin="Margin.Dense" Min="0m" Format="N2" />
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudNumericField @bind-Value="entry.AfterHoursRate" Label="After Hours"
+                            Variant="Variant.Outlined" Margin="Margin.Dense" Min="0m" Format="N2" />
+                    </MudItem>
+                    <MudItem xs="2" Class="d-flex align-center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                            Color="Color.Error" OnClick="@(() => _entries.RemoveAt(i))" />
+                    </MudItem>
+                </MudGrid>
+            }
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text"
+                OnClick="AddEntry" Class="mt-1">Add Rate</MudButton>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+            Disabled="_saving || !_valid || _entries.Count == 0">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid? RateCardId { get; set; }
+
+    private string _name = string.Empty;
+    private bool _isDefault;
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private List<CreateRateCardEntryRequest> _entries = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) _allClients = cr.Data;
+
+        if (RateCardId.HasValue) {
+            var r = await Api.GetAsync<RateCardDto>($"/api/rate-cards/{RateCardId}");
+            if (r.Success && r.Data is not null) {
+                _name = r.Data.Name;
+                _isDefault = r.Data.IsDefault;
+                _client = r.Data.ClientId.HasValue ? _allClients.FirstOrDefault(c => c.Id == r.Data.ClientId) : null;
+                _entries = r.Data.Entries.Select(e => new CreateRateCardEntryRequest {
+                    ServiceType = e.ServiceType,
+                    HourlyRate = e.HourlyRate,
+                    AfterHoursRate = e.AfterHoursRate
+                }).ToList();
+            }
+        } else {
+            AddEntry();
+        }
+    }
+
+    private void AddEntry() => _entries.Add(new CreateRateCardEntryRequest { ServiceType = "Standard" });
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _entries.Count == 0) return;
+        _saving = true;
+
+        if (RateCardId.HasValue) {
+            var update = new UpdateRateCardRequest {
+                Name = _name, IsDefault = _isDefault, Entries = _entries
+            };
+            var r = await Api.PutAsync<RateCardDto>($"/api/rate-cards/{RateCardId}", update);
+            if (r.Success) { Snackbar.Add("Rate card updated.", Severity.Success); MudDialog.Close(); }
+        } else {
+            var create = new CreateRateCardRequest {
+                Name = _name, ClientId = _client?.Id, IsDefault = _isDefault, Entries = _entries
+            };
+            var r = await Api.PostAsync<RateCardDto>("/api/rate-cards", create);
+            if (r.Success) { Snackbar.Add("Rate card created.", Severity.Success); MudDialog.Close(); }
+        }
+        _saving = false;
+    }
+}

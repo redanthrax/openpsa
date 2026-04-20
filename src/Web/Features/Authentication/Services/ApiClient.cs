@@ -32,6 +32,9 @@ public partial class ApiClient : IApiClient {
     public Task<Result<T>> GetAsync<T>(string uri, bool suppressNotFound = false) =>
         ExecuteAsync<T>("GET", uri, () => _http.GetAsync(uri), suppressNotFound);
 
+    public Task<PagedResult<T>> GetPagedAsync<T>(string uri) =>
+        ExecutePagedAsync<T>("GET", uri, () => _http.GetAsync(uri));
+
     public Task<Result<T>> PostAsync<T>(string uri, object? body = null) =>
         ExecuteAsync<T>("POST", uri, () => _http.PostAsJsonAsync(uri, body));
 
@@ -43,6 +46,22 @@ public partial class ApiClient : IApiClient {
 
     public Task<Result<T>> DeleteAsync<T>(string uri) =>
         ExecuteAsync<T>("DELETE", uri, () => _http.DeleteAsync(uri));
+
+    public async Task<byte[]?> DownloadAsync(string uri) {
+        try {
+            await AttachTokenAsync();
+            var response = await _http.GetAsync(uri);
+            if (!response.IsSuccessStatusCode) {
+                _snackbar.Add($"Download failed ({(int)response.StatusCode})", Severity.Error);
+                return null;
+            }
+            return await response.Content.ReadAsByteArrayAsync();
+        } catch (Exception ex) {
+            LogException(_logger, "GET", uri, ex);
+            _snackbar.Add("Download failed.", Severity.Error);
+            return null;
+        }
+    }
 
     private async Task<Result<T>> ExecuteAsync<T>(string method, string uri,
         Func<Task<HttpResponseMessage>> action, bool suppressNotFound = false) {
@@ -91,6 +110,55 @@ public partial class ApiClient : IApiClient {
             LogException(_logger, method, uri, ex);
             _snackbar.Add("A system error occurred.", Severity.Error);
             return Result.Fail<T>("A system error occurred.");
+        }
+    }
+
+    private async Task<PagedResult<T>> ExecutePagedAsync<T>(string method, string uri,
+        Func<Task<HttpResponseMessage>> action) {
+        try {
+            await AttachTokenAsync();
+            var response = await RetryAsync(method, uri, action);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized) {
+                await _tokenStore.ClearAsync();
+                _nav.NavigateTo("/login", forceLoad: false);
+                return PagedResult.Fail<T>("Session expired. Please log in again.");
+            }
+
+            if (response.StatusCode == HttpStatusCode.Forbidden) {
+                const string msg = "You do not have permission to perform this action.";
+                _snackbar.Add(msg, Severity.Error);
+                return PagedResult.Fail<T>(msg);
+            }
+
+            if ((int)response.StatusCode >= 500) {
+                const string msg = "A server error occurred. Please try again.";
+                LogError(_logger, method, uri, (int)response.StatusCode);
+                _snackbar.Add(msg, Severity.Error);
+                return PagedResult.Fail<T>(msg);
+            }
+
+            if (!response.IsSuccessStatusCode) {
+                string error;
+                try {
+                    var r = await response.Content.ReadFromJsonAsync<PagedResult<T>>();
+                    error = r?.Error ?? $"Request failed ({(int)response.StatusCode})";
+                } catch {
+                    error = $"Request failed ({(int)response.StatusCode})";
+                }
+                _snackbar.Add(error, Severity.Error);
+                return PagedResult.Fail<T>(error);
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<T>>();
+            if (result is { Success: false, Error: not null })
+                _snackbar.Add(result.Error, Severity.Error);
+
+            return result ?? PagedResult.Fail<T>("Empty response.");
+        } catch (Exception ex) {
+            LogException(_logger, method, uri, ex);
+            _snackbar.Add("A system error occurred.", Severity.Error);
+            return PagedResult.Fail<T>("A system error occurred.");
         }
     }
 

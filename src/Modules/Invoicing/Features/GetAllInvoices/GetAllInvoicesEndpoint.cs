@@ -15,12 +15,22 @@ namespace OpenPsa.Modules.Invoicing.Features.GetAllInvoices;
 
 public class GetAllInvoicesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/invoices", async (OpenPsaDbContext db, IMessageBus bus, Guid? clientId, InvoiceStatus? status, CancellationToken ct) => {
+        app.MapGet("/api/invoices", async (
+            OpenPsaDbContext db, IMessageBus bus,
+            Guid? clientId, InvoiceStatus? status,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<Invoice>().AsQueryable();
             if (clientId.HasValue) query = query.Where(i => i.ClientId == clientId.Value);
             if (status.HasValue) query = query.Where(i => i.Status == status.Value);
 
-            var invoices = await query.Include(i => i.LineItems).OrderByDescending(i => i.InvoiceDate).ToListAsync(ct);
+            var ordered = query.Include(i => i.LineItems).OrderByDescending(i => i.InvoiceDate);
+            var totalCount = await query.CountAsync(ct);
+            var invoices = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = invoices.Select(i => i.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
@@ -34,9 +44,9 @@ public class GetAllInvoicesEndpoint : IEndpointFeature {
                 DueDate = i.DueDate,
                 Total = i.Total,
                 AmountDue = i.AmountDue
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<InvoiceSummaryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("invoices.list").WithTags("Invoicing");
     }
 }

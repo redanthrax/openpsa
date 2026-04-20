@@ -12,5 +12,6 @@ public class NoteConfiguration : IEntityTypeConfiguration<Note> {
         builder.Property(n => n.Content).IsRequired().HasMaxLength(4000);
         builder.HasIndex(n => new { n.EntityType, n.EntityId });
         builder.HasIndex(n => n.UserId);
+        builder.HasIndex(n => n.IsInternal);
     }
 }

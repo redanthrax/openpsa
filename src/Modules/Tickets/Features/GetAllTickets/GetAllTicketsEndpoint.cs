@@ -17,13 +17,23 @@ namespace OpenPsa.Modules.Tickets.Features.GetAllTickets;
 
 public class GetAllTicketsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/tickets", async (OpenPsaDbContext db, IMessageBus bus, Guid? clientId, Guid? projectId, TicketStatus? status, CancellationToken ct) => {
+        app.MapGet("/api/tickets", async (
+            OpenPsaDbContext db, IMessageBus bus,
+            Guid? clientId, Guid? projectId, TicketStatus? status,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<Ticket>().AsQueryable();
             if (clientId.HasValue) query = query.Where(t => t.ClientId == clientId.Value);
             if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
             if (status.HasValue) query = query.Where(t => t.Status == status.Value);
 
-            var tickets = await query.OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
+            var ordered = query.OrderByDescending(t => t.CreatedAt);
+            var totalCount = await ordered.CountAsync(ct);
+            var tickets = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = tickets.Select(t => t.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
@@ -54,9 +64,9 @@ public class GetAllTicketsEndpoint : IEndpointFeature {
                 ResolvedAt = t.ResolvedAt,
                 CreatedAt = t.CreatedAt,
                 UpdatedAt = t.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<TicketDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("tickets.list").WithTags("Tickets");
     }
 }

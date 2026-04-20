@@ -1,0 +1,128 @@
+@page "/settings/business-hours/new"
+@layout Layout.SettingsLayout
+@using Contracts.Sla
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Calendar — OpenPsa</PageTitle>
+
+<FormPage Title="New Business Hours Calendar" BackUrl="/settings/business-hours" Saving="_saving" Valid="_valid" OnSave="SaveAsync">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_timeZoneId" Label="Time Zone ID" Required="true"
+            HelperText="e.g. America/New_York, Europe/London, UTC"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudCheckBox @bind-Value="_isDefault" Label="Default calendar" Class="mb-3" />
+
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Weekly Schedule</MudText>
+        @foreach (var day in Enum.GetValues<DayOfWeek>()) {
+            var schedule = _schedules.FirstOrDefault(s => s.DayOfWeek == day);
+            var enabled = schedule is not null;
+            <MudGrid Class="mb-1" Spacing="1">
+                <MudItem xs="3">
+                    <MudCheckBox T="bool" Value="enabled" Label="@day.ToString()"
+                        ValueChanged="@(v => ToggleDay(day, v))" Dense="true" />
+                </MudItem>
+                @if (enabled) {
+                    <MudItem xs="4">
+                        <MudTimePicker @bind-Time="schedule!.Start" Label="Start" Variant="Variant.Outlined" AmPm="true" />
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudTimePicker @bind-Time="schedule!.End" Label="End" Variant="Variant.Outlined" AmPm="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
+        <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2">Holidays</MudText>
+        @for (var i = 0; i < _holidays.Count; i++) {
+            var idx = i;
+            <MudGrid Class="mb-1" Spacing="1">
+                <MudItem xs="5">
+                    <MudTextField @bind-Value="_holidays[idx].Name" Label="Holiday Name"
+                        Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="5">
+                    <MudDatePicker @bind-Date="_holidays[idx].Date" Label="Date"
+                        Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="2" Class="d-flex align-center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                        OnClick="@(() => _holidays.RemoveAt(idx))" />
+                </MudItem>
+            </MudGrid>
+        }
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+            OnClick="@(() => _holidays.Add(new HolidayModel()))">Add Holiday</MudButton>
+    </MudForm>
+</FormPage>
+
+@code {
+    private string _name = string.Empty;
+    private string _timeZoneId = "America/New_York";
+    private bool _isDefault;
+    private List<ScheduleModel> _schedules = [];
+    private List<HolidayModel> _holidays = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override void OnInitialized() {
+        _schedules = [
+            new() { DayOfWeek = DayOfWeek.Monday, Start = new(8,0,0), End = new(17,0,0) },
+            new() { DayOfWeek = DayOfWeek.Tuesday, Start = new(8,0,0), End = new(17,0,0) },
+            new() { DayOfWeek = DayOfWeek.Wednesday, Start = new(8,0,0), End = new(17,0,0) },
+            new() { DayOfWeek = DayOfWeek.Thursday, Start = new(8,0,0), End = new(17,0,0) },
+            new() { DayOfWeek = DayOfWeek.Friday, Start = new(8,0,0), End = new(17,0,0) },
+        ];
+    }
+
+    private void ToggleDay(DayOfWeek day, bool enabled) {
+        _schedules.RemoveAll(s => s.DayOfWeek == day);
+        if (enabled)
+            _schedules.Add(new ScheduleModel { DayOfWeek = day, Start = new(8,0,0), End = new(17,0,0) });
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+
+        var schedules = _schedules
+            .Where(s => s.Start.HasValue && s.End.HasValue)
+            .Select(s => new CreateBusinessHoursScheduleRequest {
+                DayOfWeek = s.DayOfWeek,
+                StartTime = TimeOnly.FromTimeSpan(s.Start!.Value),
+                EndTime = TimeOnly.FromTimeSpan(s.End!.Value)
+            }).ToList();
+
+        var holidays = _holidays
+            .Where(h => !string.IsNullOrWhiteSpace(h.Name) && h.Date.HasValue)
+            .Select(h => new CreateBusinessHoursHolidayRequest {
+                Name = h.Name, Date = DateOnly.FromDateTime(h.Date!.Value)
+            }).ToList();
+
+        var create = new CreateBusinessHoursCalendarRequest {
+            Name = _name, TimeZoneId = _timeZoneId, IsDefault = _isDefault,
+            Schedules = schedules, Holidays = holidays
+        };
+        var r = await Api.PostAsync<BusinessHoursCalendarDto>("/api/business-hours", create);
+        if (r.Success) {
+            Snackbar.Add("Calendar created.", Severity.Success);
+            Nav.NavigateTo("/settings/business-hours");
+        }
+        _saving = false;
+    }
+
+    private class ScheduleModel {
+        public DayOfWeek DayOfWeek { get; set; }
+        public TimeSpan? Start { get; set; }
+        public TimeSpan? End { get; set; }
+    }
+
+    private class HolidayModel {
+        public string Name { get; set; } = string.Empty;
+        public DateTime? Date { get; set; }
+    }
+}

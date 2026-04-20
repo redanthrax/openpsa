@@ -1,0 +1,12 @@
+@page "/clients/{Id:guid}/notes"
+@layout Layout.ClientLayout
+
+<PageTitle>Notes — OpenPsa</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Notes</MudText>
+
+<OpenPsa.Web.Features.Notes.NotesPanel EntityType="client" EntityId="Id" />
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+}

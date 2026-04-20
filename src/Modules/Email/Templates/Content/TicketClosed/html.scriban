@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; margin: 0; padding: 0; }
+.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+.header { background: #2e7d32; color: #fff; padding: 16px 20px; border-radius: 6px 6px 0 0; }
+.header h2 { margin: 0; font-size: 18px; }
+.body { background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 6px 6px; }
+.meta { color: #666; font-size: 13px; margin-bottom: 12px; }
+.footer { text-align: center; color: #999; font-size: 11px; margin-top: 20px; }
+</style></head>
+<body>
+<div class="container">
+  <div class="header"><h2>Ticket Closed: #{{ ticket_number }}</h2></div>
+  <div class="body">
+    <p>Ticket <strong>#{{ ticket_number }}</strong> — <em>{{ ticket_subject }}</em> — has been closed.</p>
+    <div class="meta">
+      {{ if resolved_by }}<p><strong>Resolved by:</strong> {{ resolved_by }}</p>{{ end }}
+      {{ if resolution }}<p><strong>Resolution:</strong> {{ resolution }}</p>{{ end }}
+    </div>
+    <p>If you believe this issue is not resolved, please reply to this email to reopen the ticket.</p>
+    {{ if portal_url }}
+    <p><a href="{{ portal_url }}">View Ticket</a></p>
+    {{ end }}
+  </div>
+  <div class="footer">{{ company_name }}</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+Ticket Closed: #{{ ticket_number }}
+
+Ticket #{{ ticket_number }} — {{ ticket_subject }} — has been closed.
+{{ if resolved_by }}
+Resolved by: {{ resolved_by }}{{ end }}
+{{ if resolution }}
+Resolution: {{ resolution }}{{ end }}
+
+If you believe this issue is not resolved, please reply to this email to reopen the ticket.
+{{ if portal_url }}
+View ticket: {{ portal_url }}
+{{ end }}
+{{ company_name }}

@@ -1,0 +1,15 @@
+SLA BREACH ALERT
+
+{{ breach_type }} SLA target has been breached for ticket #{{ ticket_number }}.
+
+Subject: {{ ticket_subject }}
+Priority: {{ priority }}
+Client: {{ client_name }}
+{{ if assigned_to }}Assigned to: {{ assigned_to }}
+{{ end }}SLA Policy: {{ sla_policy_name }}
+Target: {{ target_hours }} hours
+Elapsed: {{ elapsed_hours }} hours
+{{ if portal_url }}
+View ticket: {{ portal_url }}
+{{ end }}
+{{ company_name }}

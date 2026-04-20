@@ -1,0 +1,74 @@
+@page "/invoices/generate"
+@using Contracts.Invoicing
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Generate Invoice — OpenPsa</PageTitle>
+
+<FormPage Title="Generate Invoice from Time Entries" BackUrl="/invoices" Saving="_saving"
+    Valid="@(_valid && _client is not null)" OnSave="GenerateAsync" SaveLabel="Generate Invoice" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+            @bind-Value="_client" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_fromDate" Label="From Date"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_toDate" Label="To Date"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudNumericField @bind-Value="_hourlyRate" Label="Default Hourly Rate"
+            Variant="Variant.Outlined" Class="mb-3" Min="0m" Format="N2"
+            Adornment="Adornment.Start" AdornmentText="$" />
+        <MudNumericField @bind-Value="_paymentTermsDays" Label="Payment Terms (days)"
+            Variant="Variant.Outlined" Class="mb-3" Min="0" />
+        <MudText Typo="Typo.caption" Color="Color.Tertiary">
+            This will find all approved, un-invoiced time entries for the selected client
+            and generate a single invoice with one line item per entry.
+        </MudText>
+    </MudForm>
+</FormPage>
+
+@code {
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private DateTime? _fromDate, _toDate;
+    private decimal? _hourlyRate = 150m;
+    private int _paymentTermsDays = 30;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    protected override async Task OnInitializedAsync() {
+        var r = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (r.Success && r.Data is not null) _allClients = r.Data;
+        _loading = false;
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private async Task GenerateAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null) return;
+        _saving = true;
+        var req = new GenerateInvoiceFromTimeRequest {
+            ClientId = _client.Id,
+            FromDate = _fromDate?.Date,
+            ToDate = _toDate?.Date,
+            DefaultHourlyRate = _hourlyRate,
+            PaymentTermsDays = _paymentTermsDays
+        };
+        var r = await Api.PostAsync<InvoiceDto>("/api/invoices/generate-from-time", req);
+        if (r.Success) {
+            Snackbar.Add("Invoice generated from time entries.", Severity.Success);
+            Nav.NavigateTo($"/invoices/{r.Data!.Id}");
+        } else {
+            Snackbar.Add(r.Error ?? "Failed to generate invoice.", Severity.Error);
+        }
+        _saving = false;
+    }
+}

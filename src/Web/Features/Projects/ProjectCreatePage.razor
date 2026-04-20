@@ -1,0 +1,72 @@
+@page "/projects/new"
+@page "/clients/{ClientId:guid}/projects/new"
+@using Contracts.Projects
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Project — OpenPsa</PageTitle>
+
+<FormPage Title="New Project" BackUrl="@BackUrl" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_model.Name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+            @bind-Value="_client" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Description" Label="Description" Lines="2"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_startDate" Label="Start Date" Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_endDate" Label="End Date" Variant="Variant.Outlined" Class="mb-3" />
+        <MudNumericField @bind-Value="_model.BudgetHours" Label="Budget Hours"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudNumericField @bind-Value="_model.BudgetAmount" Label="Budget Amount"
+            Variant="Variant.Outlined" Format="N2" />
+    </MudForm>
+</FormPage>
+
+@code {
+    [Parameter] public Guid? ClientId { get; set; }
+
+    private readonly CreateProjectRequest _model = new();
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private DateTime? _startDate, _endDate;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    private string BackUrl => ClientId.HasValue ? $"/clients/{ClientId}/projects" : "/projects";
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) {
+            _allClients = cr.Data;
+            if (ClientId.HasValue)
+                _client = _allClients.FirstOrDefault(c => c.Id == ClientId.Value);
+        }
+        _loading = false;
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var results = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(results);
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null) return;
+        _saving = true;
+        _model.ClientId = _client.Id;
+        _model.StartDate = _startDate;
+        _model.EndDate = _endDate;
+        var r = await Api.PostAsync<ProjectDto>("/api/projects", _model);
+        if (r.Success) {
+            Snackbar.Add("Project created.", Severity.Success);
+            Nav.NavigateTo(ClientId.HasValue ? $"/clients/{ClientId}/projects" : $"/projects/{r.Data!.Id}");
+        }
+        _saving = false;
+    }
+}

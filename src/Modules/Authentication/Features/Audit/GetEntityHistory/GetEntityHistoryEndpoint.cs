@@ -16,12 +16,18 @@ public class GetEntityHistoryEndpoint : IEndpointFeature {
         app.MapGet("/api/audit/{entityName}/{entityId}", async (
             string entityName,
             string entityId,
-            OpenPsaDbContext db,
-            CancellationToken ct) => {
+            int page = 1, int pageSize = 25,
+            OpenPsaDbContext db = default!,
+            CancellationToken ct = default) => {
 
-            var entries = await db.Set<AuditEntry>()
+            var query = db.Set<AuditEntry>()
                 .Where(a => a.EntityName == entityName && a.EntityId == entityId)
-                .OrderByDescending(a => a.CreatedAt)
+                .OrderByDescending(a => a.CreatedAt);
+
+            var totalCount = await query.CountAsync(ct);
+            var entries = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(a => new AuditEntryDto {
                     Id = a.Id,
                     EntityName = a.EntityName,
@@ -37,7 +43,7 @@ public class GetEntityHistoryEndpoint : IEndpointFeature {
                 })
                 .ToListAsync(ct);
 
-            return Results.Ok(Result.Ok(entries));
+            return Results.Ok(PagedResult.Ok(entries, totalCount, page, pageSize));
         }).RequirePermission("audit.entity").WithTags("Audit");
     }
 }

@@ -1,0 +1,45 @@
+@page "/clients/new"
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Client — OpenPsa</PageTitle>
+
+<FormPage Title="New Client" BackUrl="/clients" Saving="_saving" Valid="_valid" OnSave="SaveAsync">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_model.Name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Website" Label="Website"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Phone" Label="Phone"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudSelect @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined" Class="mb-3">
+            @foreach (var s in Enum.GetValues<ClientStatus>()) {
+                <MudSelectItem Value="s">@s</MudSelectItem>
+            }
+        </MudSelect>
+        <MudTextField @bind-Value="_model.Notes" Label="Notes" Lines="3"
+            Variant="Variant.Outlined" />
+    </MudForm>
+</FormPage>
+
+@code {
+    private readonly CreateClientRequest _model = new();
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+        var r = await Api.PostAsync<ClientDto>("/api/clients", _model);
+        if (r.Success) {
+            Snackbar.Add("Client created.", Severity.Success);
+            Nav.NavigateTo($"/clients/{r.Data!.Id}");
+        }
+        _saving = false;
+    }
+}

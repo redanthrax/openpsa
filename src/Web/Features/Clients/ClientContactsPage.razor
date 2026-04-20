@@ -1,0 +1,58 @@
+@page "/clients/{Id:guid}/contacts"
+@layout Layout.ClientLayout
+@using Contracts.Contacts
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Contacts — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h5">Contacts</MudText>
+        <HasPermission Permission="contacts.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add"
+                OnClick="@(() => Nav.NavigateTo($"/clients/{Id}/contacts/new"))">
+                New Contact
+            </MudButton>
+        </HasPermission>
+    </div>
+
+    <MudTable Items="_contacts" Dense="true" Hover="true" Elevation="1">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Phone</MudTh>
+            <MudTh>Primary</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FirstName @context.LastName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@context.Phone</MudTd>
+            <MudTd>
+                @if (context.IsPrimary) {
+                    <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" Color="Color.Warning" />
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">No contacts.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private List<ContactDto> _contacts = [];
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var result = await Api.GetPagedAsync<ContactDto>($"/api/contacts?clientId={Id}&pageSize=100");
+        if (result.Success && result.Data is not null) _contacts = result.Data.ToList();
+        _loading = false;
+    }
+}

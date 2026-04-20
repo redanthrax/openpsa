@@ -1,49 +1,36 @@
-@page "/sla-policies"
+@page "/settings/sla-policies"
+@layout SettingsLayout
 @inject IApiClient Api
-@inject IDialogService Dialog
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>SLA Policies — OpenPsa</PageTitle>
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h5">SLA Policies</MudText>
-    <HasPermission Permission="sla-policies.create">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New Policy</MudButton>
-    </HasPermission>
 </div>
 
-<MudCard>
-    <MudCardContent Class="pa-0">
-        <MudDataGrid T="Contracts.Sla.SlaPolicySummaryDto" Items="_policies" Loading="_loading"
-            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
-            Hover="true" Dense="true">
-            <Columns>
-                <PropertyColumn Property="x => x.Name" Title="Name" />
-                <PropertyColumn Property="x => x.IsDefault" Title="Default">
-                    <CellTemplate>
-                        @if (context.Item.IsDefault) {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">Default</MudChip>
-                        }
-                    </CellTemplate>
-                </PropertyColumn>
-                <PropertyColumn Property="x => x.TargetCount" Title="Targets" />
-                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
-                    <CellTemplate>
-                        <HasPermission Permission="sla-policies.update">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
-                        </HasPermission>
-                        <HasPermission Permission="sla-policies.delete">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
-                        </HasPermission>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
-    </MudCardContent>
-</MudCard>
+<DataGridPage T="Contracts.Sla.SlaPolicySummaryDto" Items="_policies" Loading="_loading"
+    SearchFunc="@((Func<Contracts.Sla.SlaPolicySummaryDto, string>)(x => x.Name))">
+    <ToolbarContent>
+        <HasPermission Permission="sla-policies.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Nav.NavigateTo("/settings/sla-policies/new"))">
+                New Policy
+            </MudButton>
+        </HasPermission>
+    </ToolbarContent>
+    <Columns>
+        <PropertyColumn T="Contracts.Sla.SlaPolicySummaryDto" TProperty="string" Property="x => x.Name" Title="Name" />
+        <PropertyColumn T="Contracts.Sla.SlaPolicySummaryDto" TProperty="bool" Property="x => x.IsDefault" Title="Default">
+            <CellTemplate>
+                @if (context.Item.IsDefault) {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">Default</MudChip>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn T="Contracts.Sla.SlaPolicySummaryDto" TProperty="int" Property="x => x.TargetCount" Title="Targets" />
+    </Columns>
+</DataGridPage>
 
 @code {
     private List<Contracts.Sla.SlaPolicySummaryDto> _policies = [];
@@ -53,27 +40,9 @@
 
     private async Task LoadAsync() {
         _loading = true;
-        var result = await Api.GetAsync<List<Contracts.Sla.SlaPolicySummaryDto>>("/api/sla-policies");
-        if (result.Success && result.Data is not null) _policies = result.Data;
+        var result = await Api.GetPagedAsync<Contracts.Sla.SlaPolicySummaryDto>("/api/sla-policies?page=1&pageSize=1000");
+        if (result.Success && result.Data is not null) _policies = result.Data.ToList();
         _loading = false;
     }
 
-    private async Task OpenCreateDialog() {
-        var dialog = await Dialog.ShowAsync<SlaPolicyDialog>("New SLA Policy");
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task OpenEditDialog(Guid id) {
-        var param = new DialogParameters<SlaPolicyDialog> { { x => x.PolicyId, id } };
-        var dialog = await Dialog.ShowAsync<SlaPolicyDialog>("Edit SLA Policy", param);
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task DeleteAsync(Guid id, string name) {
-        var ok = await Dialog.ShowMessageBox("Delete SLA Policy",
-            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
-        if (ok != true) return;
-        var result = await Api.DeleteAsync<object>($"/api/sla-policies/{id}");
-        if (result.Success) { Snackbar.Add("SLA Policy deleted.", Severity.Success); await LoadAsync(); }
-    }
 }

@@ -1,0 +1,39 @@
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-6">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack" />
+        <MudText Typo="Typo.h5">@Title</MudText>
+    </MudStack>
+
+    <MudCard>
+        <MudCardContent>
+            @if (Loading) {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            } else {
+                @ChildContent
+            }
+        </MudCardContent>
+        <MudCardActions Class="pa-4 d-flex justify-end gap-2">
+            <MudButton OnClick="GoBack" Disabled="Saving">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                OnClick="OnSave" Disabled="Saving || !Valid">
+                @if (Saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                @SaveLabel
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+</MudContainer>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string BackUrl { get; set; } = "/";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool Saving { get; set; }
+    [Parameter] public bool Valid { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public string SaveLabel { get; set; } = "Save";
+
+    private void GoBack() => Nav.NavigateTo(BackUrl);
+}

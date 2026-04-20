@@ -1,0 +1,80 @@
+@page "/expenses/new"
+@using Contracts.Expenses
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Expense — OpenPsa</PageTitle>
+
+<FormPage Title="New Expense" BackUrl="/expenses" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_description" Label="Description" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6">
+                <MudSelect @bind-Value="_category" Label="Category" Variant="Variant.Outlined">
+                    @foreach (var c in Enum.GetValues<ExpenseCategory>()) {
+                        <MudSelectItem Value="c">@c</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6">
+                <MudNumericField @bind-Value="_amount" Label="Amount" Required="true"
+                    Variant="Variant.Outlined" Format="N2" Min="0m"
+                    Adornment="Adornment.Start" AdornmentText="$" />
+            </MudItem>
+        </MudGrid>
+        <MudDatePicker @bind-Date="_expenseDate" Label="Date" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ClientSummaryDto" Label="Client"
+            @bind-Value="_client" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudSwitch @bind-Value="_billable" Label="Billable" Color="Color.Primary" Class="mb-3" />
+        <MudTextField @bind-Value="_notes" Label="Notes" Lines="2"
+            Variant="Variant.Outlined" />
+    </MudForm>
+</FormPage>
+
+@code {
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private string _description = string.Empty;
+    private ExpenseCategory _category = ExpenseCategory.Other;
+    private decimal _amount;
+    private DateTime? _expenseDate = DateTime.Today;
+    private bool _billable = true;
+    private string? _notes;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) _allClients = cr.Data;
+        _loading = false;
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _expenseDate is null) return;
+        _saving = true;
+        var create = new CreateExpenseRequest {
+            Description = _description, Category = _category,
+            Amount = _amount, ExpenseDate = _expenseDate.Value,
+            Billable = _billable, ClientId = _client?.Id, Notes = _notes
+        };
+        var r = await Api.PostAsync<ExpenseDto>("/api/expenses", create);
+        if (r.Success) {
+            Snackbar.Add("Expense created.", Severity.Success);
+            Nav.NavigateTo($"/expenses/{r.Data!.Id}");
+        }
+        _saving = false;
+    }
+}

@@ -1,0 +1,12 @@
+Reply on Ticket #{{ ticket_number }}
+
+From: {{ reply_author }}
+Subject: {{ ticket_subject }}
+
+---
+{{ reply_body }}
+---
+{{ if portal_url }}
+View ticket: {{ portal_url }}
+{{ end }}
+{{ company_name }}

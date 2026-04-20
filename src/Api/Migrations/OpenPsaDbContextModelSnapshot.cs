@@ -939,6 +939,9 @@ namespace Api.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -946,6 +949,8 @@ namespace Api.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IsInternal");
 
                     b.HasIndex("UserId");
 
@@ -1054,6 +1059,98 @@ namespace Api.Migrations
                     b.ToTable("GeneralSettings", (string)null);
                 });
 
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursCalendar", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BusinessHoursCalendars", (string)null);
+                });
+
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursHoliday", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CalendarId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CalendarId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("BusinessHoursHolidays", (string)null);
+                });
+
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CalendarId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CalendarId", "DayOfWeek");
+
+                    b.ToTable("BusinessHoursSchedules", (string)null);
+                });
+
             modelBuilder.Entity("OpenPsa.Modules.Sla.Models.SlaInstance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1122,6 +1219,9 @@ namespace Api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BusinessHoursCalendarId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1476,6 +1576,24 @@ namespace Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursHoliday", b =>
+                {
+                    b.HasOne("OpenPsa.Modules.Sla.Models.BusinessHoursCalendar", null)
+                        .WithMany("Holidays")
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursSchedule", b =>
+                {
+                    b.HasOne("OpenPsa.Modules.Sla.Models.BusinessHoursCalendar", null)
+                        .WithMany("Schedules")
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenPsa.Modules.Sla.Models.SlaTarget", b =>
                 {
                     b.HasOne("OpenPsa.Modules.Sla.Models.SlaPolicy", null)
@@ -1502,6 +1620,13 @@ namespace Api.Migrations
             modelBuilder.Entity("OpenPsa.Modules.Invoicing.Models.Invoice", b =>
                 {
                     b.Navigation("LineItems");
+                });
+
+            modelBuilder.Entity("OpenPsa.Modules.Sla.Models.BusinessHoursCalendar", b =>
+                {
+                    b.Navigation("Holidays");
+
+                    b.Navigation("Schedules");
                 });
 
             modelBuilder.Entity("OpenPsa.Modules.Sla.Models.SlaPolicy", b =>

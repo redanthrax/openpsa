@@ -2,6 +2,7 @@ using Common.Authorization;
 using Common.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using OpenPsa.Modules.Email.Services;
+using OpenPsa.Modules.Email.Templates;
 
 namespace OpenPsa.Modules.Email;
 
@@ -15,6 +16,7 @@ public class EmailModule : IModule {
     public void ConfigureServices(IServiceCollection services) {
         services.AddScoped<GraphMailService>();
         services.AddScoped<InboundEmailProcessor>();
+        services.AddSingleton<IEmailTemplateService, EmailTemplateService>();
         services.AddHostedService<ImapPollingService>();
         services.AddHostedService<GraphPollingService>();
     }

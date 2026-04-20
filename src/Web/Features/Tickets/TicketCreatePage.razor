@@ -1,0 +1,107 @@
+@page "/tickets/new"
+@page "/clients/{ClientId:guid}/tickets/new"
+@using Contracts.Tickets
+@using Contracts.Clients
+@using Contracts.Projects
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Ticket — OpenPsa</PageTitle>
+
+<FormPage Title="New Ticket" BackUrl="@BackUrl" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_model.Title" Label="Title" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+            Value="_client" ValueChanged="OnClientChanged" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ProjectSummaryDto" Label="Project (optional)"
+            @bind-Value="_project" SearchFunc="SearchProjectsAsync"
+            ToStringFunc="@(p => p?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudGrid>
+            <MudItem xs="6">
+                <MudSelect @bind-Value="_model.Priority" Label="Priority" Variant="Variant.Outlined">
+                    @foreach (var p in Enum.GetValues<TicketPriority>()) {
+                        <MudSelectItem Value="p">@p</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6">
+                <MudSelect @bind-Value="_model.Type" Label="Type" Variant="Variant.Outlined">
+                    @foreach (var t in Enum.GetValues<TicketType>()) {
+                        <MudSelectItem Value="t">@t</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudDatePicker @bind-Date="_dueDate" Label="Due Date" Variant="Variant.Outlined" Class="mt-3 mb-3" />
+        <MudTextField @bind-Value="_model.Description" Label="Description" Lines="3"
+            Variant="Variant.Outlined" />
+    </MudForm>
+</FormPage>
+
+@code {
+    [Parameter] public Guid? ClientId { get; set; }
+
+    private readonly CreateTicketRequest _model = new();
+    private ClientSummaryDto? _client;
+    private ProjectSummaryDto? _project;
+    private List<ClientSummaryDto> _allClients = [];
+    private List<ProjectSummaryDto> _allProjects = [];
+    private DateTime? _dueDate;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    private string BackUrl => ClientId.HasValue ? $"/clients/{ClientId}/tickets" : "/tickets";
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) {
+            _allClients = cr.Data;
+            if (ClientId.HasValue) {
+                _client = _allClients.FirstOrDefault(c => c.Id == ClientId.Value);
+                if (_client is not null) OnClientChanged(_client);
+            }
+        }
+        _loading = false;
+    }
+
+    private async void OnClientChanged(ClientSummaryDto? client) {
+        _client = client;
+        _project = null;
+        if (client is not null) {
+            var r = await Api.GetAsync<List<ProjectSummaryDto>>($"/api/projects?clientId={client.Id}");
+            if (r.Success && r.Data is not null) _allProjects = r.Data;
+        }
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private Task<IEnumerable<ProjectSummaryDto>> SearchProjectsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allProjects
+            : _allProjects.Where(p => p.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ProjectSummaryDto>>(res);
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null) return;
+        _saving = true;
+        _model.ClientId = _client.Id;
+        _model.ProjectId = _project?.Id;
+        _model.DueDate = _dueDate;
+        var r = await Api.PostAsync<TicketDto>("/api/tickets", _model);
+        if (r.Success) {
+            Snackbar.Add("Ticket created.", Severity.Success);
+            Nav.NavigateTo(ClientId.HasValue ? $"/clients/{ClientId}/tickets" : $"/tickets/{r.Data!.Id}");
+        }
+        _saving = false;
+    }
+}

@@ -1,0 +1,83 @@
+@using Contracts.Notes
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4 mt-4" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-3">Notes</MudText>
+
+    <MudForm @ref="_form">
+        <MudTextField @bind-Value="_newContent" Label="Add a note..." Lines="2"
+            Variant="Variant.Outlined" Class="mb-2" Immediate="true" />
+        <div class="d-flex align-center gap-2 mb-3">
+            <MudCheckBox @bind-Value="_isInternal" Label="Internal only" Color="Color.Warning" Dense="true" />
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                OnClick="AddNoteAsync" Disabled="_saving || string.IsNullOrWhiteSpace(_newContent)">
+                @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+                Add Note
+            </MudButton>
+        </div>
+    </MudForm>
+
+    @if (_loading) {
+        <MudProgressLinear Indeterminate="true" />
+    } else if (_notes.Count == 0) {
+        <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">No notes yet.</MudText>
+    } else {
+        @foreach (var note in _notes) {
+            <MudCard Class="mb-2" Elevation="0" Outlined="true">
+                <MudCardContent Class="pa-3">
+                    <div class="d-flex align-center gap-2 mb-1">
+                        <MudText Typo="Typo.caption" Class="font-weight-bold">@note.UserName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Default">@note.CreatedAt.ToString("MMM d, yyyy h:mm tt")</MudText>
+                        @if (note.IsInternal) {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Internal</MudChip>
+                        }
+                    </div>
+                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@note.Content</MudText>
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string EntityType { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public Guid EntityId { get; set; }
+
+    private List<NoteDto> _notes = [];
+    private string _newContent = string.Empty;
+    private bool _isInternal;
+    private bool _loading = true, _saving;
+    private MudForm _form = null!;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var r = await Api.GetAsync<List<NoteDto>>($"/api/notes/{EntityType}/{EntityId}");
+        if (r.Success && r.Data is not null) _notes = r.Data;
+        _loading = false;
+    }
+
+    private async Task AddNoteAsync() {
+        if (string.IsNullOrWhiteSpace(_newContent)) return;
+        _saving = true;
+
+        var request = new CreateNoteRequest {
+            EntityType = EntityType,
+            EntityId = EntityId,
+            Content = _newContent.Trim(),
+            IsInternal = _isInternal
+        };
+
+        var r = await Api.PostAsync<NoteDto>("/api/notes", request);
+        if (r.Success) {
+            _newContent = string.Empty;
+            _isInternal = false;
+            Snackbar.Add("Note added.", Severity.Success);
+            await LoadAsync();
+        }
+        _saving = false;
+    }
+}

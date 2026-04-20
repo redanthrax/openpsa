@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; margin: 0; padding: 0; }
+.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+.header { background: #c62828; color: #fff; padding: 16px 20px; border-radius: 6px 6px 0 0; }
+.header h2 { margin: 0; font-size: 18px; }
+.body { background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 6px 6px; }
+.meta { color: #666; font-size: 13px; margin-bottom: 12px; }
+.alert { background: #ffebee; border: 1px solid #ef9a9a; padding: 12px; border-radius: 4px; color: #b71c1c; }
+.footer { text-align: center; color: #999; font-size: 11px; margin-top: 20px; }
+</style></head>
+<body>
+<div class="container">
+  <div class="header"><h2>SLA Breach Alert</h2></div>
+  <div class="body">
+    <div class="alert">
+      <strong>{{ breach_type }}</strong> SLA target has been breached for ticket <strong>#{{ ticket_number }}</strong>.
+    </div>
+    <div class="meta" style="margin-top: 12px;">
+      <p><strong>Subject:</strong> {{ ticket_subject }}</p>
+      <p><strong>Priority:</strong> {{ priority }}</p>
+      <p><strong>Client:</strong> {{ client_name }}</p>
+      {{ if assigned_to }}<p><strong>Assigned to:</strong> {{ assigned_to }}</p>{{ end }}
+      <p><strong>SLA Policy:</strong> {{ sla_policy_name }}</p>
+      <p><strong>Target:</strong> {{ target_hours }} hours</p>
+      <p><strong>Elapsed:</strong> {{ elapsed_hours }} hours</p>
+    </div>
+    {{ if portal_url }}
+    <p><a href="{{ portal_url }}">View Ticket</a></p>
+    {{ end }}
+  </div>
+  <div class="footer">{{ company_name }}</div>
+</div>
+</body>
+</html>

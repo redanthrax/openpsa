@@ -78,3 +78,6 @@ coverage/
 
 # Publish output
 publish/
+
+# Dev working docs
+dev/

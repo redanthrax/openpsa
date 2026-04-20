@@ -143,9 +143,11 @@ try {
 
     var redisMultiplexer = services.AddRedisCache(configuration);
 
+    services.AddSingleton<UtcDateTimeInterceptor>();
     services.AddDbContext<OpenPsaDbContext>((sp, opts) => {
         opts.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Api"));
         opts.UseAuditInterceptor(sp);
+        opts.AddInterceptors(sp.GetRequiredService<UtcDateTimeInterceptor>());
     });
 
     services.AddSignalR().AddStackExchangeRedis(

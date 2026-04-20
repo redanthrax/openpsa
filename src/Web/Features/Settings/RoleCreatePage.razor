@@ -1,0 +1,57 @@
+@page "/settings/roles/new"
+@layout Layout.SettingsLayout
+@using Contracts.Roles
+@using Contracts.Permissions
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Role — OpenPsa</PageTitle>
+
+<FormPage Title="New Role" BackUrl="/settings/roles" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_description" Label="Description"
+            Variant="Variant.Outlined" Class="mb-4" />
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Permissions</MudText>
+        @foreach (var group in _allPermissions.GroupBy(p => p.Category).OrderBy(g => g.Key)) {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 mb-1">@group.Key</MudText>
+            @foreach (var p in group) {
+                <MudCheckBox @bind-Value="_selected[p.Key]" Label="@p.Name" Dense="true" />
+            }
+        }
+    </MudForm>
+</FormPage>
+
+@code {
+    private string _name = string.Empty;
+    private string? _description;
+    private List<PermissionDto> _allPermissions = [];
+    private Dictionary<string, bool> _selected = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    protected override async Task OnInitializedAsync() {
+        var r = await Api.GetAsync<List<PermissionDto>>("/api/permissions");
+        if (r.Success && r.Data is not null) {
+            _allPermissions = r.Data;
+            _selected = _allPermissions.ToDictionary(p => p.Key, p => false);
+        }
+        _loading = false;
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+        var permissions = _selected.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+        var create = new { Name = _name, Description = _description, Permissions = permissions };
+        var r = await Api.PostAsync<RoleDto>("/api/roles", create);
+        if (r.Success) {
+            Snackbar.Add("Role created.", Severity.Success);
+            Nav.NavigateTo("/settings/roles");
+        }
+        _saving = false;
+    }
+}

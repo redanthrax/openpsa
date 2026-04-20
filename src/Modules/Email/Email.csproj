@@ -15,6 +15,10 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+    <PackageReference Include="Scriban" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Templates/Content/**/*.scriban" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Common.csproj" />

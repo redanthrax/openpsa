@@ -1,0 +1,91 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject IApiClient Api
+@inject IUserPermissionService PermissionService
+@implements IDisposable
+
+<PermissionProvider>
+    <MudLayout>
+        <AppBar OnToggleDrawer="ToggleDrawer" />
+        <MudDrawer @bind-Open="_drawerOpen"
+            ClipMode="DrawerClipMode.Always" Elevation="2"
+            Variant="DrawerVariant.Mini" MiniWidth="72px">
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+                <MudGrid Spacing="0">
+                    <MudItem xs="12" sm="3" md="2">
+                        <MudPaper Elevation="0" Class="border-r mud-border-lines-default" Style="min-height: calc(100vh - 64px); position: sticky; top: 64px;">
+                            <div class="pa-3">
+                                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Size="Size.Small"
+                                    OnClick="@(() => Nav.NavigateTo("/clients"))">Clients</MudButton>
+                                @if (_clientName is not null) {
+                                    <MudText Typo="Typo.subtitle1" Class="mt-2 px-1" Style="font-weight: 600;">@_clientName</MudText>
+                                }
+                            </div>
+                            <MudNavMenu Dense="true" Class="pa-2">
+                                <MudNavLink Href="@($"/clients/{_clientId}")" Icon="@Icons.Material.Filled.Dashboard" Match="NavLinkMatch.All">Overview</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/contacts")" Icon="@Icons.Material.Filled.People" Match="NavLinkMatch.All">Contacts</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/projects")" Icon="@Icons.Material.Filled.AccountTree" Match="NavLinkMatch.All">Projects</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/tickets")" Icon="@Icons.Material.Filled.ConfirmationNumber" Match="NavLinkMatch.All">Tickets</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/agreements")" Icon="@Icons.Material.Filled.Handshake" Match="NavLinkMatch.All">Agreements</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/sites")" Icon="@Icons.Material.Filled.LocationOn" Match="NavLinkMatch.All">Sites</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/assets")" Icon="@Icons.Material.Filled.Devices" Match="NavLinkMatch.All">Assets</MudNavLink>
+                                <MudNavLink Href="@($"/clients/{_clientId}/notes")" Icon="@Icons.Material.Filled.Notes" Match="NavLinkMatch.All">Notes</MudNavLink>
+                            </MudNavMenu>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="9" md="10">
+                        <div class="pa-4">
+                            @Body
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</PermissionProvider>
+
+@code {
+    private bool _drawerOpen;
+    private Guid _clientId;
+    private string? _clientName;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    protected override async Task OnInitializedAsync() {
+        PermissionService.OnPermissionsChanged += Refresh;
+        ParseClientId();
+        Nav.LocationChanged += OnLocationChanged;
+        await LoadClientNameAsync();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) {
+        var oldId = _clientId;
+        ParseClientId();
+        if (_clientId != oldId)
+            InvokeAsync(async () => { await LoadClientNameAsync(); StateHasChanged(); });
+    }
+
+    private void ParseClientId() {
+        var uri = new Uri(Nav.Uri);
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length >= 2 && segments[0] == "clients" && Guid.TryParse(segments[1], out var id))
+            _clientId = id;
+    }
+
+    private async Task LoadClientNameAsync() {
+        if (_clientId == Guid.Empty) return;
+        var result = await Api.GetAsync<Contracts.Clients.ClientDto>($"/api/clients/{_clientId}");
+        if (result.Success && result.Data is not null)
+            _clientName = result.Data.Name;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() {
+        PermissionService.OnPermissionsChanged -= Refresh;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

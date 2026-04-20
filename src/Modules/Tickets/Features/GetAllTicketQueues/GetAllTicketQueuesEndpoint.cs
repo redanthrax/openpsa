@@ -13,10 +13,19 @@ namespace OpenPsa.Modules.Tickets.Features.GetAllTicketQueues;
 
 public class GetAllTicketQueuesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/ticket-queues", async (OpenPsaDbContext db, CancellationToken ct) => {
-            var queues = await db.Set<TicketQueue>()
+        app.MapGet("/api/ticket-queues", async (
+            OpenPsaDbContext db,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
+            var ordered = db.Set<TicketQueue>()
                 .OrderBy(q => q.SortOrder)
-                .ThenBy(q => q.Name)
+                .ThenBy(q => q.Name);
+
+            var totalCount = await db.Set<TicketQueue>().CountAsync(ct);
+            var queues = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
 
             var queueIds = queues.Select(q => q.Id).ToList();
@@ -37,9 +46,9 @@ public class GetAllTicketQueuesEndpoint : IEndpointFeature {
                 OpenTicketCount = openCounts.GetValueOrDefault(q.Id, 0),
                 CreatedAt = q.CreatedAt,
                 UpdatedAt = q.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<TicketQueueDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("ticket-queues.list").WithTags("Ticket Queues");
     }
 }

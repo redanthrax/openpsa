@@ -1,0 +1,17 @@
+Ticket Created: #{{ ticket_number }}
+
+A new ticket has been created{{ if client_name }} for {{ client_name }}{{ end }}.
+
+Subject: {{ ticket_subject }}
+Priority: {{ priority }}
+Type: {{ ticket_type }}
+{{ if assigned_to }}Assigned to: {{ assigned_to }}
+{{ end }}{{ if queue_name }}Queue: {{ queue_name }}
+{{ end }}
+{{ if description }}---
+{{ description }}
+---{{ end }}
+{{ if portal_url }}
+View ticket: {{ portal_url }}
+{{ end }}
+{{ company_name }}

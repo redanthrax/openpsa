@@ -14,7 +14,9 @@ namespace OpenPsa.Modules.Email.Features.GetEmailMessages;
 public class GetEmailMessagesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
         app.MapGet("/api/email/messages", async (
-            Guid? ticketId, Guid? clientId, Guid? mailboxConnectionId, OpenPsaDbContext db, CancellationToken ct) => {
+            Guid? ticketId, Guid? clientId, Guid? mailboxConnectionId,
+            int page = 1, int pageSize = 25,
+            OpenPsaDbContext db = default!, CancellationToken ct = default) => {
 
             var query = db.Set<EmailMessage>().AsQueryable();
 
@@ -22,9 +24,11 @@ public class GetEmailMessagesEndpoint : IEndpointFeature {
             if (clientId.HasValue) query = query.Where(e => e.ClientId == clientId.Value);
             if (mailboxConnectionId.HasValue) query = query.Where(e => e.MailboxConnectionId == mailboxConnectionId.Value);
 
-            var messages = await query
-                .OrderByDescending(e => e.SentAt)
-                .Take(100)
+            var ordered = query.OrderByDescending(e => e.SentAt);
+            var totalCount = await ordered.CountAsync(ct);
+            var messages = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(e => new EmailMessageSummaryDto {
                     Id = e.Id,
                     TicketId = e.TicketId,
@@ -37,7 +41,7 @@ public class GetEmailMessagesEndpoint : IEndpointFeature {
                 })
                 .ToListAsync(ct);
 
-            return Results.Ok(Result.Ok(messages));
+            return Results.Ok(PagedResult.Ok(messages, totalCount, page, pageSize));
         }).RequirePermission("email.view-messages").WithTags("Email");
 
         app.MapGet("/api/email/messages/{id:guid}", async (Guid id, OpenPsaDbContext db, CancellationToken ct) => {

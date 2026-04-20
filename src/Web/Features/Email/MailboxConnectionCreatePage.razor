@@ -1,0 +1,104 @@
+@page "/settings/email/new"
+@layout Layout.SettingsLayout
+@using Contracts.Email
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Mailbox Connection — OpenPsa</PageTitle>
+
+<FormPage Title="New Mailbox Connection" BackUrl="/settings/email" Saving="_saving" Valid="_valid" OnSave="SaveAsync">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_name" Label="Display Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_emailAddress" Label="Email Address" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" InputType="InputType.Email" />
+        <MudSelect @bind-Value="_provider" Label="Provider" Variant="Variant.Outlined" Class="mb-3">
+            <MudSelectItem Value="MailboxProvider.Imap">IMAP / SMTP</MudSelectItem>
+            <MudSelectItem Value="MailboxProvider.MicrosoftGraph">Microsoft 365 (Graph API)</MudSelectItem>
+        </MudSelect>
+
+        @if (_provider == MailboxProvider.Imap) {
+            <MudText Typo="Typo.subtitle2" Class="mb-2 mt-2">IMAP Settings</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="_imapHost" Label="IMAP Host" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField @bind-Value="_imapPort" Label="Port" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudSwitch @bind-Value="_imapUseSsl" Label="Use SSL/TLS" Color="Color.Primary" Class="mb-3" />
+            <MudTextField @bind-Value="_imapUsername" Label="IMAP Username" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_imapPassword" Label="IMAP Password" Variant="Variant.Outlined" Class="mb-3" InputType="InputType.Password" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2 mt-2">SMTP Settings</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="_smtpHost" Label="SMTP Host" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField @bind-Value="_smtpPort" Label="Port" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudSwitch @bind-Value="_smtpUseSsl" Label="Use SSL/TLS" Color="Color.Primary" Class="mb-3" />
+            <MudTextField @bind-Value="_smtpUsername" Label="SMTP Username" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_smtpPassword" Label="SMTP Password" Variant="Variant.Outlined" Class="mb-3" InputType="InputType.Password" />
+        }
+
+        @if (_provider == MailboxProvider.MicrosoftGraph) {
+            <MudText Typo="Typo.subtitle2" Class="mb-2 mt-2">Microsoft Graph Settings</MudText>
+            <MudTextField @bind-Value="_graphTenantId" Label="Tenant ID" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_graphClientId" Label="Client ID" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_graphClientSecret" Label="Client Secret" Variant="Variant.Outlined" Class="mb-3" InputType="InputType.Password" />
+            <MudTextField @bind-Value="_graphMailboxUserId" Label="Mailbox User ID or UPN"
+                Variant="Variant.Outlined" Class="mb-3"
+                HelperText="The user principal name or object ID of the shared mailbox" />
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2 mt-4">Options</MudText>
+        <MudNumericField @bind-Value="_pollIntervalSeconds" Label="Poll Interval (seconds)"
+            Variant="Variant.Outlined" Class="mb-3" Min="15" />
+        <MudSwitch @bind-Value="_autoCreateContacts" Label="Auto-create contacts for unknown senders"
+            Color="Color.Primary" />
+    </MudForm>
+</FormPage>
+
+@code {
+    private string _name = string.Empty;
+    private string _emailAddress = string.Empty;
+    private MailboxProvider _provider = MailboxProvider.Imap;
+    private string? _imapHost, _imapUsername, _imapPassword;
+    private int? _imapPort = 993;
+    private bool _imapUseSsl = true;
+    private string? _smtpHost, _smtpUsername, _smtpPassword;
+    private int? _smtpPort = 587;
+    private bool _smtpUseSsl = true;
+    private string? _graphTenantId, _graphClientId, _graphClientSecret, _graphMailboxUserId;
+    private int _pollIntervalSeconds = 60;
+    private bool _autoCreateContacts = true;
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid) return;
+        _saving = true;
+        var create = new CreateMailboxConnectionRequest {
+            Name = _name, EmailAddress = _emailAddress, Provider = _provider,
+            ImapHost = _imapHost, ImapPort = _imapPort, ImapUseSsl = _imapUseSsl,
+            ImapUsername = _imapUsername, ImapPassword = _imapPassword,
+            SmtpHost = _smtpHost, SmtpPort = _smtpPort, SmtpUseSsl = _smtpUseSsl,
+            SmtpUsername = _smtpUsername, SmtpPassword = _smtpPassword,
+            GraphTenantId = _graphTenantId, GraphClientId = _graphClientId,
+            GraphClientSecret = _graphClientSecret, GraphMailboxUserId = _graphMailboxUserId,
+            PollIntervalSeconds = _pollIntervalSeconds, AutoCreateContacts = _autoCreateContacts
+        };
+        var r = await Api.PostAsync<MailboxConnectionDto>("/api/mailbox-connections", create);
+        if (r.Success) {
+            Snackbar.Add("Connection created.", Severity.Success);
+            Nav.NavigateTo("/settings/email");
+        }
+        _saving = false;
+    }
+}

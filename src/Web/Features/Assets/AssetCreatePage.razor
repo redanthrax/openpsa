@@ -1,0 +1,133 @@
+@page "/assets/new"
+@page "/clients/{ClientId:guid}/assets/new"
+@using Contracts.Assets
+@using Contracts.Clients
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New Asset — OpenPsa</PageTitle>
+
+<FormPage Title="New Asset" BackUrl="@BackUrl" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+            @bind-Value="_client" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6">
+                <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined">
+                    @foreach (var t in Enum.GetValues<AssetType>()) {
+                        <MudSelectItem Value="t">@FormatType(t)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6">
+                <MudSelect @bind-Value="_status" Label="Status" Variant="Variant.Outlined">
+                    @foreach (var s in Enum.GetValues<AssetStatus>()) {
+                        <MudSelectItem Value="s">@s</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_manufacturer" Label="Manufacturer" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_model" Label="Model" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_serialNumber" Label="Serial Number" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_operatingSystem" Label="Operating System" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_ipAddress" Label="IP Address" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudTextField @bind-Value="_macAddress" Label="MAC Address" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="4">
+                <MudDatePicker @bind-Date="_purchaseDate" Label="Purchase Date" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudDatePicker @bind-Date="_warrantyExpiry" Label="Warranty Expiry" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="4">
+                <MudNumericField @bind-Value="_purchasePrice" Label="Purchase Price"
+                    Variant="Variant.Outlined" Format="N2" Adornment="Adornment.Start" AdornmentText="$" />
+            </MudItem>
+        </MudGrid>
+        <MudTextField @bind-Value="_location" Label="Location" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_notes" Label="Notes" Lines="3" Variant="Variant.Outlined" />
+    </MudForm>
+</FormPage>
+
+@code {
+    [Parameter] public Guid? ClientId { get; set; }
+
+    private ClientSummaryDto? _client;
+    private List<ClientSummaryDto> _allClients = [];
+    private string _name = string.Empty;
+    private AssetType _type = AssetType.Workstation;
+    private AssetStatus _status = AssetStatus.Deployed;
+    private string? _manufacturer, _model, _serialNumber;
+    private string? _operatingSystem, _ipAddress, _macAddress;
+    private DateTime? _purchaseDate, _warrantyExpiry;
+    private decimal? _purchasePrice;
+    private string? _location, _notes;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    private string BackUrl => ClientId.HasValue ? $"/clients/{ClientId}/assets" : "/assets";
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) {
+            _allClients = cr.Data;
+            if (ClientId.HasValue)
+                _client = _allClients.FirstOrDefault(c => c.Id == ClientId.Value);
+        }
+        _loading = false;
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null) return;
+        _saving = true;
+        var create = new CreateAssetRequest {
+            Name = _name, Type = _type, Status = _status, ClientId = _client.Id,
+            Manufacturer = _manufacturer, Model = _model, SerialNumber = _serialNumber,
+            OperatingSystem = _operatingSystem, IpAddress = _ipAddress, MacAddress = _macAddress,
+            PurchaseDate = _purchaseDate, WarrantyExpiry = _warrantyExpiry,
+            PurchasePrice = _purchasePrice, Location = _location, Notes = _notes
+        };
+        var r = await Api.PostAsync<AssetDto>("/api/assets", create);
+        if (r.Success) {
+            Snackbar.Add("Asset created.", Severity.Success);
+            Nav.NavigateTo(ClientId.HasValue ? $"/clients/{ClientId}/assets" : $"/assets/{r.Data!.Id}");
+        }
+        _saving = false;
+    }
+
+    private static string FormatType(AssetType t) => t switch {
+        AssetType.NetworkDevice => "Network Device",
+        AssetType.SoftwareLicense => "Software License",
+        AssetType.MobileDevice => "Mobile Device",
+        _ => t.ToString()
+    };
+}

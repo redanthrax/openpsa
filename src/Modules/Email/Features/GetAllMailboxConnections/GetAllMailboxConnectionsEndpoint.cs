@@ -13,8 +13,12 @@ namespace OpenPsa.Modules.Email.Features.GetAllMailboxConnections;
 
 public class GetAllMailboxConnectionsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/mailbox-connections", async (OpenPsaDbContext db) => {
-            var connections = await db.Set<MailboxConnection>()
+        app.MapGet("/api/mailbox-connections", async (
+            OpenPsaDbContext db,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
+            var query = db.Set<MailboxConnection>()
                 .OrderBy(c => c.Name)
                 .Select(c => new MailboxConnectionSummaryDto {
                     Id = c.Id,
@@ -25,10 +29,15 @@ public class GetAllMailboxConnectionsEndpoint : IEndpointFeature {
                     LastPollAt = c.LastPollAt,
                     MessageCount = c.MessageCount,
                     LastError = c.LastError
-                })
-                .ToListAsync();
+                });
 
-            return Results.Ok(Result.Ok(connections));
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
         }).RequirePermission("mailbox-connections.list").WithTags("Email");
     }
 }

@@ -1,0 +1,77 @@
+@page "/settings/sla-policies/new"
+@layout Layout.SettingsLayout
+@using Contracts.Sla
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>New SLA Policy — OpenPsa</PageTitle>
+
+<FormPage Title="New SLA Policy" BackUrl="/settings/sla-policies" Saving="_saving"
+    Valid="@(_valid && _targets.Count > 0)" OnSave="SaveAsync">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudTextField @bind-Value="_name" Label="Name" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_description" Label="Description" Lines="2"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudSwitch @bind-Value="_isDefault" Label="Default Policy" Color="Color.Primary" Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Targets by Priority</MudText>
+        @foreach (var target in _targets) {
+            <MudGrid Class="mb-2" Spacing="1">
+                <MudItem xs="4">
+                    <MudSelect @bind-Value="target.Priority" Label="Priority" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var p in Enum.GetValues<SlaPriorityLevel>()) {
+                            <MudSelectItem Value="p">@p</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudNumericField @bind-Value="target.ResponseTimeMinutes" Label="Response (min)"
+                        Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" />
+                </MudItem>
+                <MudItem xs="3">
+                    <MudNumericField @bind-Value="target.ResolutionTimeMinutes" Label="Resolution (min)"
+                        Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" />
+                </MudItem>
+                <MudItem xs="2" Class="d-flex align-center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                        Color="Color.Error" OnClick="@(() => _targets.Remove(target))" />
+                </MudItem>
+            </MudGrid>
+        }
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text"
+            OnClick="AddTarget" Class="mt-1">Add Target</MudButton>
+    </MudForm>
+</FormPage>
+
+@code {
+    private string _name = string.Empty;
+    private string? _description;
+    private bool _isDefault;
+    private List<CreateSlaTargetRequest> _targets = [];
+    private MudForm _form = null!;
+    private bool _valid, _saving;
+
+    protected override void OnInitialized() => AddTarget();
+
+    private void AddTarget() => _targets.Add(new CreateSlaTargetRequest {
+        Priority = SlaPriorityLevel.Medium, ResponseTimeMinutes = 60, ResolutionTimeMinutes = 480
+    });
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _targets.Count == 0) return;
+        _saving = true;
+        var create = new CreateSlaPolicyRequest {
+            Name = _name, Description = _description,
+            IsDefault = _isDefault, Targets = _targets
+        };
+        var r = await Api.PostAsync<SlaPolicyDto>("/api/sla-policies", create);
+        if (r.Success) {
+            Snackbar.Add("SLA Policy created.", Severity.Success);
+            Nav.NavigateTo("/settings/sla-policies");
+        }
+        _saving = false;
+    }
+}

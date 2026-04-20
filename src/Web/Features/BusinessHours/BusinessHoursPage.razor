@@ -1,0 +1,61 @@
+@page "/settings/business-hours"
+@layout SettingsLayout
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Business Hours — OpenPsa</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">Business Hours Calendars</MudText>
+</div>
+
+<DataGridPage T="Contracts.Sla.BusinessHoursCalendarDto" Items="_calendars" Loading="_loading"
+    SearchFunc="@((Func<Contracts.Sla.BusinessHoursCalendarDto, string>)(x => $"{x.Name} {x.TimeZoneId}"))">
+    <ToolbarContent>
+        <HasPermission Permission="sla-policies.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Nav.NavigateTo("/settings/business-hours/new"))">
+                New Calendar
+            </MudButton>
+        </HasPermission>
+    </ToolbarContent>
+    <Columns>
+        <PropertyColumn T="Contracts.Sla.BusinessHoursCalendarDto" TProperty="string" Property="x => x.Name" Title="Name" />
+        <PropertyColumn T="Contracts.Sla.BusinessHoursCalendarDto" TProperty="string" Property="x => x.TimeZoneId" Title="Time Zone" />
+        <TemplateColumn T="Contracts.Sla.BusinessHoursCalendarDto" Title="Default" Sortable="false">
+            <CellTemplate>
+                @if (context.Item.IsDefault) {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Default</MudChip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="Contracts.Sla.BusinessHoursCalendarDto" Title="Schedule" Sortable="false">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">
+                    @string.Join(", ", context.Item.Schedules.Select(s =>
+                        $"{s.DayOfWeek.ToString()[..3]} {s.StartTime:HH:mm}-{s.EndTime:HH:mm}"))
+                </MudText>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="Contracts.Sla.BusinessHoursCalendarDto" Title="Holidays" Sortable="false">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">@context.Item.Holidays.Count</MudText>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</DataGridPage>
+
+@code {
+    private List<Contracts.Sla.BusinessHoursCalendarDto> _calendars = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+        _loading = true;
+        var r = await Api.GetPagedAsync<Contracts.Sla.BusinessHoursCalendarDto>("/api/business-hours?page=1&pageSize=1000");
+        if (r.Success && r.Data is not null) _calendars = r.Data.ToList();
+        _loading = false;
+    }
+
+}

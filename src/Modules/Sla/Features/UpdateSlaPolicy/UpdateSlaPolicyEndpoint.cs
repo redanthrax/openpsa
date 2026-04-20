@@ -26,6 +26,7 @@ public class UpdateSlaPolicyEndpoint : IEndpointFeature {
             policy.Name = request.Name;
             policy.Description = request.Description;
             policy.IsDefault = request.IsDefault;
+            policy.BusinessHoursCalendarId = request.BusinessHoursCalendarId;
 
             db.Set<SlaTarget>().RemoveRange(policy.Targets);
             policy.Targets = request.Targets.Select(t => new SlaTarget {

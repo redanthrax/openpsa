@@ -17,15 +17,22 @@ namespace OpenPsa.Modules.Expenses.Features.GetAllExpenses;
 public class GetAllExpensesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
         app.MapGet("/api/expenses", async (
+            OpenPsaDbContext db, IMessageBus bus,
             Guid? clientId, Guid? projectId, ExpenseStatus? status,
-            OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
 
             var query = db.Set<Expense>().AsQueryable();
             if (clientId.HasValue) query = query.Where(e => e.ClientId == clientId.Value);
             if (projectId.HasValue) query = query.Where(e => e.ProjectId == projectId.Value);
             if (status.HasValue) query = query.Where(e => e.Status == status.Value);
 
-            var expenses = await query.OrderByDescending(e => e.ExpenseDate).ToListAsync(ct);
+            var ordered = query.OrderByDescending(e => e.ExpenseDate);
+            var totalCount = await ordered.CountAsync(ct);
+            var expenses = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = expenses.Where(e => e.ClientId.HasValue).Select(e => e.ClientId!.Value).Distinct().ToList();
             var clientNames = clientIds.Count > 0
@@ -50,7 +57,7 @@ public class GetAllExpensesEndpoint : IEndpointFeature {
                 UserName = e.UserId != null && Guid.TryParse(e.UserId, out var uid) ? userNames.GetValueOrDefault(uid) : null
             }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<ExpenseSummaryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("expenses.list").WithTags("Expenses");
     }
 }

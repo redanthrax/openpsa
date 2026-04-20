@@ -20,4 +20,13 @@ public class TicketStatsQueryHandler {
 
         return new(openCount, overdueCount);
     }
+
+    public async Task<GetOpenTicketCountsByClientResponse> Handle(GetOpenTicketCountsByClientQuery query) {
+        var openStatuses = new[] { TicketStatus.New, TicketStatus.Open, TicketStatus.InProgress, TicketStatus.PendingCustomer };
+        var counts = await _db.Set<Ticket>()
+            .Where(t => query.ClientIds.Contains(t.ClientId) && openStatuses.Contains(t.Status))
+            .GroupBy(t => t.ClientId)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+        return new(counts);
+    }
 }

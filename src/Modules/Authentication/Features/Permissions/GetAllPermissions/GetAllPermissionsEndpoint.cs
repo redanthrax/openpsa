@@ -13,18 +13,27 @@ namespace OpenPsa.Modules.Authentication.Features.Permissions.GetAllPermissions;
 
 public class GetAllPermissionsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/permissions", async (OpenPsaDbContext db, CancellationToken ct) => {
-            var permissions = await db.Set<Permission>()
+        app.MapGet("/api/permissions", async (
+            OpenPsaDbContext db,
+            int page = 1, int pageSize = 100,
+            CancellationToken ct = default) => {
+
+            var query = db.Set<Permission>()
                 .OrderBy(p => p.Category).ThenBy(p => p.Name)
                 .Select(p => new PermissionDto {
                     Key = p.Key,
                     Name = p.Name,
                     Description = p.Description,
                     Category = p.Category
-                })
+                });
+
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
 
-            return Results.Ok(Result.Ok(permissions));
+            return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
         }).RequirePermission("permissions.list").WithTags("Permissions");
     }
 }

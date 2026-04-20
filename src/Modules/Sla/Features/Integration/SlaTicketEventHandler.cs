@@ -6,6 +6,7 @@ using IntegrationEvents.Sla;
 using IntegrationEvents.Tickets;
 using Microsoft.EntityFrameworkCore;
 using OpenPsa.Modules.Sla.Models;
+using OpenPsa.Modules.Sla.Services;
 using Wolverine;
 
 namespace OpenPsa.Modules.Sla.Features.Integration;
@@ -24,19 +25,30 @@ public class SlaTicketEventHandler {
 
         if (!policyId.HasValue) return;
 
+        var policy = await db.Set<SlaPolicy>().FirstOrDefaultAsync(p => p.Id == policyId.Value, ct);
+        if (policy is null) return;
+
         var policyResponse = await bus.InvokeAsync<GetSlaPolicyResponse>(new GetSlaPolicyQuery(policyId.Value), ct);
         if (!policyResponse.Found || policyResponse.Targets == null) return;
 
         var priorityInt = (int)SlaPriorityLevel.Medium;
         if (!policyResponse.Targets.TryGetValue(priorityInt, out var target)) return;
 
+        BusinessHoursCalendar? calendar = null;
+        if (policy.BusinessHoursCalendarId.HasValue) {
+            calendar = await db.Set<BusinessHoursCalendar>()
+                .Include(c => c.Schedules)
+                .Include(c => c.Holidays)
+                .FirstOrDefaultAsync(c => c.Id == policy.BusinessHoursCalendarId.Value, ct);
+        }
+
         var now = DateTime.UtcNow;
         var instance = new SlaInstance {
             TicketId = evt.TicketId,
             SlaPolicyId = policyId.Value,
             Priority = (SlaPriorityLevel)priorityInt,
-            ResponseDueAt = now.AddMinutes(target.ResponseTimeMinutes),
-            ResolutionDueAt = now.AddMinutes(target.ResolutionTimeMinutes)
+            ResponseDueAt = BusinessHoursService.CalculateDeadline(now, target.ResponseTimeMinutes, calendar),
+            ResolutionDueAt = BusinessHoursService.CalculateDeadline(now, target.ResolutionTimeMinutes, calendar)
         };
 
         db.Set<SlaInstance>().Add(instance);

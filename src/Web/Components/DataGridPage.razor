@@ -1,0 +1,55 @@
+@typeparam T
+@attribute [CascadingTypeParameter(nameof(T))]
+
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="px-4 pt-4 pb-2">
+            <MudTextField @bind-Value="_search" Placeholder="Search..." Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Small"
+                Immediate="true" DebounceInterval="300" Clearable="true"
+                Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-0"
+                Style="max-width: 320px;" />
+            <MudSpacer />
+            @ToolbarContent
+        </MudStack>
+
+        <MudDataGrid @ref="_grid" T="T" Items="_filteredItems" Loading="Loading"
+            Filterable="false" SortMode="SortMode.Multiple"
+            Hover="true" Dense="true"
+            RowClick="OnRowClick" RowStyleFunc="@((_, _) => RowClick.HasDelegate ? "cursor: pointer" : "")"
+            RowsPerPage="_pageSize" CurrentPage="_currentPage">
+            <Columns>
+                @Columns
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="T" PageSizeOptions="@(new[] { 10, 25, 50, 100 })" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired] public List<T> Items { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public RenderFragment? Columns { get; set; }
+    [Parameter] public RenderFragment? ToolbarContent { get; set; }
+    [Parameter] public Func<T, string>? SearchFunc { get; set; }
+    [Parameter] public EventCallback<DataGridRowClickEventArgs<T>> RowClick { get; set; }
+    [Parameter] public int PageSize { get; set; } = 25;
+
+    private MudDataGrid<T> _grid = null!;
+    private string? _search;
+    private int _pageSize = 25;
+    private int _currentPage;
+
+    private IEnumerable<T> _filteredItems => string.IsNullOrWhiteSpace(_search) || SearchFunc is null
+        ? Items
+        : Items.Where(item => SearchFunc(item).Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnInitialized() => _pageSize = PageSize;
+
+    private async Task OnRowClick(DataGridRowClickEventArgs<T> args) {
+        if (RowClick.HasDelegate)
+            await RowClick.InvokeAsync(args);
+    }
+}

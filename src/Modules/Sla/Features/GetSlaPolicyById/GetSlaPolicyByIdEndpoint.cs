@@ -18,7 +18,15 @@ public class GetSlaPolicyByIdEndpoint : IEndpointFeature {
             var policy = await db.Set<SlaPolicy>().Include(p => p.Targets).FirstOrDefaultAsync(p => p.Id == id, ct);
             if (policy == null) return Results.NotFound();
 
-            return Results.Ok(Result.Ok(CreateSlaPolicyEndpoint.MapToDto(policy)));
+            string? calendarName = null;
+            if (policy.BusinessHoursCalendarId.HasValue) {
+                calendarName = await db.Set<BusinessHoursCalendar>()
+                    .Where(c => c.Id == policy.BusinessHoursCalendarId.Value)
+                    .Select(c => c.Name)
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            return Results.Ok(Result.Ok(CreateSlaPolicyEndpoint.MapToDto(policy, calendarName)));
         }).RequirePermission("sla-policies.view").WithTags("SLA");
     }
 }

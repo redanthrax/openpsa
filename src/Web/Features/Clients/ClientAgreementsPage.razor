@@ -1,0 +1,54 @@
+@page "/clients/{Id:guid}/agreements"
+@layout Layout.ClientLayout
+@using Contracts.Agreements
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Agreements — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h5">Agreements</MudText>
+        <HasPermission Permission="agreements.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add"
+                OnClick="@(() => Nav.NavigateTo($"/clients/{Id}/agreements/new"))">
+                New Agreement
+            </MudButton>
+        </HasPermission>
+    </div>
+
+    <MudTable Items="_agreements" Dense="true" Hover="true" Elevation="1">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>End Date</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.Type</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small" Color="Color.Info">@context.Status</MudChip></MudTd>
+            <MudTd>@context.EndDate.ToLocalTime().ToString("MMM dd, yyyy")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">No agreements.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private List<AgreementSummaryDto> _agreements = [];
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var result = await Api.GetPagedAsync<AgreementSummaryDto>($"/api/agreements?clientId={Id}&pageSize=100");
+        if (result.Success && result.Data is not null) _agreements = result.Data.ToList();
+        _loading = false;
+    }
+}

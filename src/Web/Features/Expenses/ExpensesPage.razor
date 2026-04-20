@@ -1,68 +1,55 @@
 @page "/expenses"
 @inject IApiClient Api
-@inject IDialogService Dialog
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Expenses — OpenPsa</PageTitle>
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h5">Expenses</MudText>
-    <HasPermission Permission="expenses.create">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New Expense</MudButton>
-    </HasPermission>
 </div>
 
-<MudCard>
-    <MudCardContent Class="pa-0">
-        <MudDataGrid T="Contracts.Expenses.ExpenseSummaryDto" Items="_expenses" Loading="_loading"
-            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
-            Hover="true" Dense="true">
-            <Columns>
-                <PropertyColumn Property="x => x.Description" Title="Description" />
-                <PropertyColumn Property="x => x.Category" Title="Category">
-                    <CellTemplate>
-                        <MudChip T="string" Size="Size.Small" Color="@CategoryColor(context.Item.Category)">
-                            @context.Item.Category
-                        </MudChip>
-                    </CellTemplate>
-                </PropertyColumn>
-                <PropertyColumn Property="x => x.Status" Title="Status">
-                    <CellTemplate>
-                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
-                            @context.Item.Status
-                        </MudChip>
-                    </CellTemplate>
-                </PropertyColumn>
-                <TemplateColumn Title="Amount" SortBy="x => x.Amount">
-                    <CellTemplate><MudText>@context.Item.Amount.ToString("C2")</MudText></CellTemplate>
-                </TemplateColumn>
-                <PropertyColumn Property="x => x.ExpenseDate" Title="Date" Format="MMM d, yyyy" />
-                <PropertyColumn Property="x => x.Billable" Title="Billable">
-                    <CellTemplate>
-                        @if (context.Item.Billable) {
-                            <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" Color="Color.Success" />
-                        }
-                    </CellTemplate>
-                </PropertyColumn>
-                <PropertyColumn Property="x => x.ClientName" Title="Client" />
-                <PropertyColumn Property="x => x.UserName" Title="User" />
-                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
-                    <CellTemplate>
-                        <HasPermission Permission="expenses.update">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                OnClick="@(() => OpenEditDialog(context.Item))" />
-                        </HasPermission>
-                        <HasPermission Permission="expenses.delete">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Description))" />
-                        </HasPermission>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
-    </MudCardContent>
-</MudCard>
+<DataGridPage T="Contracts.Expenses.ExpenseSummaryDto" Items="_expenses" Loading="_loading"
+    SearchFunc="@((Func<Contracts.Expenses.ExpenseSummaryDto, string>)(x => $"{x.Description} {x.ClientName} {x.Category} {x.Status}"))"
+    RowClick="@(args => Nav.NavigateTo($"/expenses/{args.Item.Id}"))">
+    <ToolbarContent>
+        <HasPermission Permission="expenses.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Nav.NavigateTo("/expenses/new"))">
+                New Expense
+            </MudButton>
+        </HasPermission>
+    </ToolbarContent>
+    <Columns>
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="string" Property="x => x.Description" Title="Description" />
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="Contracts.Expenses.ExpenseCategory" Property="x => x.Category" Title="Category">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="@CategoryColor(context.Item.Category)">
+                    @context.Item.Category
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="Contracts.Expenses.ExpenseStatus" Property="x => x.Status" Title="Status">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                    @context.Item.Status
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn T="Contracts.Expenses.ExpenseSummaryDto" Title="Amount" SortBy="x => x.Amount">
+            <CellTemplate><MudText>@context.Item.Amount.ToString("C2")</MudText></CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="DateTime" Property="x => x.ExpenseDate" Title="Date" Format="MMM d, yyyy" />
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="bool" Property="x => x.Billable" Title="Billable">
+            <CellTemplate>
+                @if (context.Item.Billable) {
+                    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" Color="Color.Success" />
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="string" Property="x => x.ClientName" Title="Client" />
+        <PropertyColumn T="Contracts.Expenses.ExpenseSummaryDto" TProperty="string" Property="x => x.UserName" Title="User" />
+    </Columns>
+</DataGridPage>
 
 @code {
     private List<Contracts.Expenses.ExpenseSummaryDto> _expenses = [];
@@ -72,31 +59,11 @@
 
     private async Task LoadAsync() {
         _loading = true;
-        var result = await Api.GetAsync<List<Contracts.Expenses.ExpenseSummaryDto>>("/api/expenses");
-        if (result.Success && result.Data is not null) _expenses = result.Data;
+        var result = await Api.GetPagedAsync<Contracts.Expenses.ExpenseSummaryDto>("/api/expenses?page=1&pageSize=1000");
+        if (result.Success && result.Data is not null) _expenses = result.Data.ToList();
         _loading = false;
     }
 
-    private async Task OpenCreateDialog() {
-        var dialog = await Dialog.ShowAsync<ExpenseDialog>("New Expense",
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task OpenEditDialog(Contracts.Expenses.ExpenseSummaryDto expense) {
-        var param = new DialogParameters<ExpenseDialog> { { x => x.ExpenseId, expense.Id } };
-        var dialog = await Dialog.ShowAsync<ExpenseDialog>("Edit Expense", param,
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task DeleteAsync(Guid id, string desc) {
-        var ok = await Dialog.ShowMessageBox("Delete Expense",
-            $"Delete \"{desc}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
-        if (ok != true) return;
-        var result = await Api.DeleteAsync<object>($"/api/expenses/{id}");
-        if (result.Success) { Snackbar.Add("Expense deleted.", Severity.Success); await LoadAsync(); }
-    }
 
     private static Color CategoryColor(Contracts.Expenses.ExpenseCategory c) => c switch {
         Contracts.Expenses.ExpenseCategory.Travel => Color.Info,

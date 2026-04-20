@@ -15,12 +15,22 @@ namespace OpenPsa.Modules.Agreements.Features.GetAllAgreements;
 
 public class GetAllAgreementsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/agreements", async (OpenPsaDbContext db, IMessageBus bus, Guid? clientId, AgreementStatus? status, CancellationToken ct) => {
+        app.MapGet("/api/agreements", async (
+            OpenPsaDbContext db, IMessageBus bus,
+            Guid? clientId, AgreementStatus? status,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<Agreement>().AsQueryable();
             if (clientId.HasValue) query = query.Where(a => a.ClientId == clientId.Value);
             if (status.HasValue) query = query.Where(a => a.Status == status.Value);
 
-            var agreements = await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
+            var ordered = query.OrderByDescending(a => a.CreatedAt);
+            var totalCount = await ordered.CountAsync(ct);
+            var agreements = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = agreements.Select(a => a.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
@@ -35,9 +45,9 @@ public class GetAllAgreementsEndpoint : IEndpointFeature {
                 EndDate = a.EndDate,
                 MonthlyAmount = a.MonthlyAmount,
                 BlockHoursRemaining = a.BlockHoursTotal.HasValue ? a.BlockHoursTotal.Value - (a.BlockHoursUsed ?? 0) : null
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<AgreementSummaryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("agreements.list").WithTags("Agreements");
     }
 }

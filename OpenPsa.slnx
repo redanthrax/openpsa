@@ -23,4 +23,7 @@
     <Project Path="src/Modules/Assets/Assets.csproj" />
     <Project Path="src/Modules/Expenses/Expenses.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Api.Tests/Api.Tests.csproj" />
+  </Folder>
 </Solution>

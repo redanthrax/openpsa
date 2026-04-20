@@ -1,0 +1,55 @@
+@page "/clients/{Id:guid}/projects"
+@layout Layout.ClientLayout
+@using Contracts.Projects
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Projects — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h5">Projects</MudText>
+        <HasPermission Permission="projects.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add"
+                OnClick="@(() => Nav.NavigateTo($"/clients/{Id}/projects/new"))">
+                New Project
+            </MudButton>
+        </HasPermission>
+    </div>
+
+    <MudTable T="ProjectDto" Items="_projects" Dense="true" Hover="true" Elevation="1"
+        OnRowClick="@(r => Nav.NavigateTo($"/projects/{r.Item.Id}"))">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Manager</MudTh>
+            <MudTh>Budget Hours</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small" Color="Color.Info">@context.Status</MudChip></MudTd>
+            <MudTd>@(context.ManagerUserName ?? "—")</MudTd>
+            <MudTd>@(context.BudgetHours?.ToString("N1") ?? "—")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">No projects.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private List<ProjectDto> _projects = [];
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var result = await Api.GetPagedAsync<ProjectDto>($"/api/projects?clientId={Id}&pageSize=100");
+        if (result.Success && result.Data is not null) _projects = result.Data.ToList();
+        _loading = false;
+    }
+}

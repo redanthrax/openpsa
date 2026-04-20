@@ -1,0 +1,81 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject IUserPermissionService PermissionService
+@implements IDisposable
+
+<PermissionProvider>
+    <MudLayout>
+        <AppBar OnToggleDrawer="ToggleDrawer" />
+        <MudDrawer @bind-Open="_drawerOpen"
+            ClipMode="DrawerClipMode.Always" Elevation="2"
+            Variant="DrawerVariant.Mini" MiniWidth="72px">
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+                <MudGrid Spacing="0">
+                    <MudItem xs="12" sm="3" md="2">
+                        <MudPaper Elevation="0" Class="border-r mud-border-lines-default" Style="min-height: calc(100vh - 64px); position: sticky; top: 64px;">
+                            <MudNavMenu Dense="true" Class="pa-2">
+                                <MudText Typo="Typo.overline" Class="px-3 pt-3 pb-1" Style="letter-spacing: 0.1em;">Organization</MudText>
+                                <HasPermission Permission="settings.view">
+                                    <MudNavLink Href="/settings/general" Icon="@Icons.Material.Filled.Tune" Match="NavLinkMatch.All">General</MudNavLink>
+                                </HasPermission>
+                                <HasPermission Permission="users.list">
+                                    <MudNavLink Href="/settings/users" Icon="@Icons.Material.Filled.People" Match="NavLinkMatch.All">Users</MudNavLink>
+                                </HasPermission>
+                                <HasPermission Permission="roles.list">
+                                    <MudNavLink Href="/settings/roles" Icon="@Icons.Material.Filled.Security" Match="NavLinkMatch.All">Roles & Permissions</MudNavLink>
+                                </HasPermission>
+
+                                <MudText Typo="Typo.overline" Class="px-3 pt-4 pb-1" Style="letter-spacing: 0.1em;">Service Desk</MudText>
+                                <HasPermission Permission="ticket-queues.list">
+                                    <MudNavLink Href="/settings/ticket-queues" Icon="@Icons.Material.Filled.Queue" Match="NavLinkMatch.All">Ticket Queues</MudNavLink>
+                                </HasPermission>
+                                <HasPermission Permission="sla-policies.list">
+                                    <MudNavLink Href="/settings/sla-policies" Icon="@Icons.Material.Filled.Verified" Match="NavLinkMatch.All">SLA Policies</MudNavLink>
+                                </HasPermission>
+                                <HasPermission Permission="sla-policies.list">
+                                    <MudNavLink Href="/settings/business-hours" Icon="@Icons.Material.Filled.Schedule" Match="NavLinkMatch.All">Business Hours</MudNavLink>
+                                </HasPermission>
+
+                                <MudText Typo="Typo.overline" Class="px-3 pt-4 pb-1" Style="letter-spacing: 0.1em;">Billing</MudText>
+                                <HasPermission Permission="rate-cards.list">
+                                    <MudNavLink Href="/settings/rate-cards" Icon="@Icons.Material.Filled.RequestQuote" Match="NavLinkMatch.All">Rate Cards</MudNavLink>
+                                </HasPermission>
+
+                                <MudText Typo="Typo.overline" Class="px-3 pt-4 pb-1" Style="letter-spacing: 0.1em;">Integrations</MudText>
+                                <HasPermission Permission="mailbox-connections.list">
+                                    <MudNavLink Href="/settings/email" Icon="@Icons.Material.Filled.Email" Match="NavLinkMatch.All">Email Connections</MudNavLink>
+                                </HasPermission>
+
+                                <MudText Typo="Typo.overline" Class="px-3 pt-4 pb-1" Style="letter-spacing: 0.1em;">System</MudText>
+                                <HasPermission Permission="audit.list">
+                                    <MudNavLink Href="/settings/audit" Icon="@Icons.Material.Filled.History" Match="NavLinkMatch.All">Audit Log</MudNavLink>
+                                </HasPermission>
+                            </MudNavMenu>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="9" md="10">
+                        <div class="pa-4">
+                            @Body
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</PermissionProvider>
+
+@code {
+    private bool _drawerOpen;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    protected override void OnInitialized() =>
+        PermissionService.OnPermissionsChanged += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => PermissionService.OnPermissionsChanged -= Refresh;
+}

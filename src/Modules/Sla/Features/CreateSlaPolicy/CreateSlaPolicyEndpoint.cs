@@ -23,6 +23,7 @@ public class CreateSlaPolicyEndpoint : IEndpointFeature {
                 Name = request.Name,
                 Description = request.Description,
                 IsDefault = request.IsDefault,
+                BusinessHoursCalendarId = request.BusinessHoursCalendarId,
                 Targets = request.Targets.Select(t => new SlaTarget {
                     Priority = t.Priority,
                     ResponseTimeMinutes = t.ResponseTimeMinutes,
@@ -37,11 +38,13 @@ public class CreateSlaPolicyEndpoint : IEndpointFeature {
         }).RequirePermission("sla-policies.create").WithTags("SLA");
     }
 
-    internal static SlaPolicyDto MapToDto(SlaPolicy policy) => new() {
+    internal static SlaPolicyDto MapToDto(SlaPolicy policy, string? calendarName = null) => new() {
         Id = policy.Id,
         Name = policy.Name,
         Description = policy.Description,
         IsDefault = policy.IsDefault,
+        BusinessHoursCalendarId = policy.BusinessHoursCalendarId,
+        BusinessHoursCalendarName = calendarName,
         Targets = policy.Targets.Select(t => new SlaTargetDto {
             Id = t.Id,
             Priority = t.Priority,

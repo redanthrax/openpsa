@@ -16,11 +16,21 @@ namespace OpenPsa.Modules.Projects.Features.GetAllProjects;
 
 public class GetAllProjectsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/projects", async (OpenPsaDbContext db, IMessageBus bus, Guid? clientId, CancellationToken ct) => {
+        app.MapGet("/api/projects", async (
+            OpenPsaDbContext db, IMessageBus bus,
+            Guid? clientId,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<Project>().AsQueryable();
             if (clientId.HasValue) query = query.Where(p => p.ClientId == clientId.Value);
 
-            var projects = await query.OrderBy(p => p.Name).ToListAsync(ct);
+            var ordered = query.OrderBy(p => p.Name);
+            var totalCount = await ordered.CountAsync(ct);
+            var projects = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = projects.Select(p => p.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
@@ -47,9 +57,9 @@ public class GetAllProjectsEndpoint : IEndpointFeature {
                 LoggedHours = p.LoggedHours,
                 CreatedAt = p.CreatedAt,
                 UpdatedAt = p.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<ProjectDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("projects.list").WithTags("Projects");
     }
 }

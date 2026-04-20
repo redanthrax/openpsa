@@ -1,0 +1,49 @@
+@page "/settings/preferences"
+@layout SettingsLayout
+@using OpenPsa.Web.Services
+@inject ThemeService ThemeService
+
+<PageTitle>Preferences — OpenPsa</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+    <MudText Typo="Typo.h5" Class="mb-6">Preferences</MudText>
+
+    <MudPaper Class="pa-6" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-4">Appearance</MudText>
+
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Theme</MudText>
+        <MudRadioGroup @bind-Value="_selectedPreset" T="ThemePreset" Class="mb-4">
+            <MudRadio Value="ThemePreset.Professional" Color="Color.Primary">
+                Professional
+            </MudRadio>
+            <MudRadio Value="ThemePreset.Cyberpunk" Color="Color.Secondary">
+                Cyberpunk
+            </MudRadio>
+        </MudRadioGroup>
+
+        <MudDivider Class="my-4" />
+
+        <MudSwitch @bind-Value="_isDarkMode" Color="Color.Primary" Label="Dark mode" T="bool" />
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save">
+            Save
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private ThemePreset _selectedPreset;
+    private bool _isDarkMode;
+
+    protected override void OnInitialized() {
+        _selectedPreset = ThemeService.Preset;
+        _isDarkMode = ThemeService.IsDarkMode;
+    }
+
+    private void Save() {
+        ThemeService.IsDarkMode = _isDarkMode;
+        ThemeService.Preset = _selectedPreset;
+    }
+}

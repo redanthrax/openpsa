@@ -15,11 +15,21 @@ namespace OpenPsa.Modules.TimeEntries.Features.GetAllRateCards;
 
 public class GetAllRateCardsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/rate-cards", async (OpenPsaDbContext db, IMessageBus bus, Guid? clientId, CancellationToken ct) => {
+        app.MapGet("/api/rate-cards", async (
+            OpenPsaDbContext db, IMessageBus bus,
+            Guid? clientId,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<RateCard>().Include(r => r.Entries).AsQueryable();
             if (clientId.HasValue) query = query.Where(r => r.ClientId == clientId.Value || r.ClientId == null);
 
-            var rateCards = await query.OrderByDescending(r => r.CreatedAt).ToListAsync(ct);
+            var ordered = query.OrderByDescending(r => r.CreatedAt);
+            var totalCount = await query.CountAsync(ct);
+            var rateCards = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = rateCards.Where(r => r.ClientId.HasValue).Select(r => r.ClientId!.Value).Distinct().ToList();
             var clientNames = clientIds.Count > 0
@@ -40,9 +50,9 @@ public class GetAllRateCardsEndpoint : IEndpointFeature {
                 }).ToList(),
                 CreatedAt = r.CreatedAt,
                 UpdatedAt = r.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<RateCardDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("rate-cards.list").WithTags("Rate Cards");
     }
 }

@@ -16,15 +16,22 @@ namespace OpenPsa.Modules.Assets.Features.GetAllAssets;
 public class GetAllAssetsEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
         app.MapGet("/api/assets", async (
+            OpenPsaDbContext db, IMessageBus bus,
             Guid? clientId, AssetType? type, AssetStatus? status,
-            OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
 
             var query = db.Set<Asset>().AsQueryable();
             if (clientId.HasValue) query = query.Where(a => a.ClientId == clientId.Value);
             if (type.HasValue) query = query.Where(a => a.Type == type.Value);
             if (status.HasValue) query = query.Where(a => a.Status == status.Value);
 
-            var assets = await query.OrderBy(a => a.Name).ToListAsync(ct);
+            var ordered = query.OrderBy(a => a.Name);
+            var totalCount = await ordered.CountAsync(ct);
+            var assets = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = assets.Select(a => a.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(
@@ -42,7 +49,7 @@ public class GetAllAssetsEndpoint : IEndpointFeature {
                 WarrantyExpiry = a.WarrantyExpiry
             }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<AssetSummaryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("assets.list").WithTags("Assets");
     }
 }

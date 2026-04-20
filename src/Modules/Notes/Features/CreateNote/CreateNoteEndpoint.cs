@@ -23,7 +23,8 @@ public class CreateNoteEndpoint : IEndpointFeature {
                 EntityType = request.EntityType,
                 EntityId = request.EntityId,
                 Content = request.Content,
-                UserId = userId
+                UserId = userId,
+                IsInternal = request.IsInternal
             };
 
             db.Set<Note>().Add(note);
@@ -38,6 +39,7 @@ public class CreateNoteEndpoint : IEndpointFeature {
                 Content = note.Content,
                 UserId = note.UserId.ToString(),
                 UserName = userName,
+                IsInternal = note.IsInternal,
                 CreatedAt = note.CreatedAt,
                 UpdatedAt = note.UpdatedAt
             }));

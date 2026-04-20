@@ -16,12 +16,20 @@ namespace OpenPsa.Modules.Clients.Features.GetAllSites;
 public class GetAllSitesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
         app.MapGet("/api/sites", async (
-            Guid? clientId, OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
+            Guid? clientId,
+            int page = 1, int pageSize = 25,
+            OpenPsaDbContext db = default!, IMessageBus bus = default!,
+            CancellationToken ct = default) => {
 
             var query = db.Set<Site>().AsQueryable();
             if (clientId.HasValue) query = query.Where(s => s.ClientId == clientId.Value);
 
-            var sites = await query.OrderBy(s => s.Name).ToListAsync(ct);
+            var ordered = query.OrderBy(s => s.Name);
+            var totalCount = await ordered.CountAsync(ct);
+            var sites = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = sites.Select(s => s.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(
@@ -38,7 +46,7 @@ public class GetAllSitesEndpoint : IEndpointFeature {
                 IsPrimary = s.IsPrimary
             }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<SiteSummaryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("sites.list").WithTags("Sites");
     }
 }

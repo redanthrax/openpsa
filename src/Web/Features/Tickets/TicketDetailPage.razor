@@ -1,0 +1,75 @@
+@page "/tickets/{Id:guid}"
+@using Contracts.Tickets
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>@(_ticket?.Title ?? "Ticket") — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else if (_ticket is null) {
+    <MudText>Ticket not found.</MudText>
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <div>
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                OnClick="@(() => Nav.NavigateTo("/tickets"))">Back</MudButton>
+        </div>
+        <HasPermission Permission="tickets.update">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit"
+                OnClick="EditAsync">Edit</MudButton>
+        </HasPermission>
+    </div>
+
+    <MudCard Class="mb-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h5" Class="mb-2">@_ticket.Title</MudText>
+            <MudGrid>
+                <MudItem xs="3">
+                    <MudText Typo="Typo.caption">Status</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">@_ticket.Status</MudChip>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudText Typo="Typo.caption">Priority</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@_ticket.Priority</MudChip>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudText Typo="Typo.caption">Client</MudText>
+                    <MudText>@_ticket.ClientName</MudText>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudText Typo="Typo.caption">Assigned To</MudText>
+                    <MudText>@(_ticket.AssignedToUserName ?? "Unassigned")</MudText>
+                </MudItem>
+            </MudGrid>
+            @if (!string.IsNullOrWhiteSpace(_ticket.Description)) {
+                <MudText Typo="Typo.body2" Class="mt-3" Style="white-space: pre-wrap;">@_ticket.Description</MudText>
+            }
+        </MudCardContent>
+    </MudCard>
+
+    <OpenPsa.Web.Features.Notes.NotesPanel EntityType="ticket" EntityId="Id" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private TicketDto? _ticket;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var r = await Api.GetAsync<TicketDto>($"/api/tickets/{Id}");
+        if (r.Success) _ticket = r.Data;
+        _loading = false;
+    }
+
+    private async Task EditAsync() {
+        var param = new DialogParameters<TicketDialog> { { x => x.TicketId, Id } };
+        var dialog = await Dialog.ShowAsync<TicketDialog>("Edit Ticket", param);
+        if (!(await dialog.Result).Canceled)
+            await OnParametersSetAsync();
+    }
+}

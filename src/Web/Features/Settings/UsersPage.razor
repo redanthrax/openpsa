@@ -1,55 +1,47 @@
 @page "/settings/users"
+@layout SettingsLayout
 @inject IApiClient Api
-@inject IDialogService Dialog
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Users — OpenPsa</PageTitle>
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h5">Users</MudText>
-    <HasPermission Permission="users.create">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New User</MudButton>
-    </HasPermission>
 </div>
 
-<MudCard>
-    <MudCardContent Class="pa-0">
-        <MudDataGrid T="Contracts.Users.UserDto" Items="_users" Loading="_loading"
-            Filterable="true" FilterMode="DataGridFilterMode.Simple" Hover="true" Dense="true">
-            <Columns>
-                <PropertyColumn Property="x => x.Name" Title="Name" />
-                <PropertyColumn Property="x => x.Email" Title="Email" />
-                <PropertyColumn Property="x => x.Roles" Title="Roles">
-                    <CellTemplate>
-                        @foreach (var r in context.Item.Roles) {
-                            <MudChip T="string" Size="Size.Small" Class="mr-1">@r</MudChip>
-                        }
-                    </CellTemplate>
-                </PropertyColumn>
-                <TemplateColumn Title="Status" SortBy="x => x.IsActive">
-                    <CellTemplate>
-                        <MudChip T="string" Size="Size.Small"
-                            Color="@(context.Item.IsActive ? Color.Success : Color.Default)">
-                            @(context.Item.IsActive ? "Active" : "Inactive")
-                        </MudChip>
-                        @if (context.Item.IsSuperAdmin) {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-1">Admin</MudChip>
-                        }
-                    </CellTemplate>
-                </TemplateColumn>
-                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
-                    <CellTemplate>
-                        <HasPermission Permission="users.update">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                OnClick="@(() => OpenEditDialog(context.Item))" />
-                        </HasPermission>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
-    </MudCardContent>
-</MudCard>
+<DataGridPage T="Contracts.Users.UserDto" Items="_users" Loading="_loading"
+    SearchFunc="@((Func<Contracts.Users.UserDto, string>)(x => $"{x.Name} {x.Email}"))">
+    <ToolbarContent>
+        <HasPermission Permission="users.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Nav.NavigateTo("/settings/users/new"))">
+                New User
+            </MudButton>
+        </HasPermission>
+    </ToolbarContent>
+    <Columns>
+        <PropertyColumn T="Contracts.Users.UserDto" TProperty="string" Property="x => x.Name" Title="Name" />
+        <PropertyColumn T="Contracts.Users.UserDto" TProperty="string" Property="x => x.Email" Title="Email" />
+        <PropertyColumn T="Contracts.Users.UserDto" TProperty="List<string>" Property="x => x.Roles" Title="Roles">
+            <CellTemplate>
+                @foreach (var r in context.Item.Roles) {
+                    <MudChip T="string" Size="Size.Small" Class="mr-1">@r</MudChip>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn T="Contracts.Users.UserDto" Title="Status" SortBy="x => x.IsActive">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small"
+                    Color="@(context.Item.IsActive ? Color.Success : Color.Default)">
+                    @(context.Item.IsActive ? "Active" : "Inactive")
+                </MudChip>
+                @if (context.Item.IsSuperAdmin) {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-1">Admin</MudChip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</DataGridPage>
 
 @code {
     private List<Contracts.Users.UserDto> _users = [];
@@ -59,19 +51,9 @@
 
     private async Task LoadAsync() {
         _loading = true;
-        var result = await Api.GetAsync<List<Contracts.Users.UserDto>>("/api/users");
-        if (result.Success && result.Data is not null) _users = result.Data;
+        var result = await Api.GetPagedAsync<Contracts.Users.UserDto>("/api/users?page=1&pageSize=1000");
+        if (result.Success && result.Data is not null) _users = result.Data.ToList();
         _loading = false;
     }
 
-    private async Task OpenCreateDialog() {
-        var dialog = await Dialog.ShowAsync<UserDialog>("New User");
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task OpenEditDialog(Contracts.Users.UserDto user) {
-        var param = new DialogParameters<UserDialog> { { x => x.User, user } };
-        var dialog = await Dialog.ShowAsync<UserDialog>("Edit User", param);
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
 }

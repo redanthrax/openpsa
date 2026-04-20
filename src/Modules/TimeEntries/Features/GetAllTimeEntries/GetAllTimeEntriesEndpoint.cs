@@ -19,14 +19,24 @@ namespace OpenPsa.Modules.TimeEntries.Features.GetAllTimeEntries;
 
 public class GetAllTimeEntriesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/time-entries", async (OpenPsaDbContext db, IMessageBus bus, IUserContext userContext, Guid? clientId, Guid? projectId, bool? myEntries, CancellationToken ct) => {
+        app.MapGet("/api/time-entries", async (
+            OpenPsaDbContext db, IMessageBus bus, IUserContext userContext,
+            Guid? clientId, Guid? projectId, bool? myEntries,
+            int page = 1, int pageSize = 25,
+            CancellationToken ct = default) => {
+
             var query = db.Set<TimeEntry>().AsQueryable();
             if (clientId.HasValue) query = query.Where(t => t.ClientId == clientId.Value);
             if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
             if (myEntries == true && Guid.TryParse(userContext.UserId, out var meId))
                 query = query.Where(t => t.UserId == meId);
 
-            var entries = await query.OrderByDescending(t => t.Date).ToListAsync(ct);
+            var ordered = query.OrderByDescending(t => t.Date);
+            var totalCount = await ordered.CountAsync(ct);
+            var entries = await ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
 
             var clientIds = entries.Select(t => t.ClientId).Distinct().ToList();
             var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
@@ -57,9 +67,9 @@ public class GetAllTimeEntriesEndpoint : IEndpointFeature {
                 Invoiced = t.Invoiced,
                 CreatedAt = t.CreatedAt,
                 UpdatedAt = t.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<TimeEntryDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("time-entries.list").WithTags("Time Entries");
     }
 }

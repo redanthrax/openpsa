@@ -1,0 +1,58 @@
+@page "/clients/{Id:guid}/assets"
+@layout Layout.ClientLayout
+@using Contracts.Assets
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Assets — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h5">Assets</MudText>
+        <HasPermission Permission="assets.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add"
+                OnClick="@(() => Nav.NavigateTo("/assets/new"))">
+                New Asset
+            </MudButton>
+        </HasPermission>
+    </div>
+
+    <MudTable Items="_assets" Dense="true" Hover="true" Elevation="1">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Manufacturer</MudTh>
+            <MudTh>Model</MudTh>
+            <MudTh>Serial Number</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.Type</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small" Color="Color.Info">@context.Status</MudChip></MudTd>
+            <MudTd>@(context.Manufacturer ?? "—")</MudTd>
+            <MudTd>@(context.Model ?? "—")</MudTd>
+            <MudTd>@(context.SerialNumber ?? "—")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">No assets.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private List<AssetSummaryDto> _assets = [];
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var result = await Api.GetPagedAsync<AssetSummaryDto>($"/api/assets?clientId={Id}&pageSize=100");
+        if (result.Success && result.Data is not null) _assets = result.Data.ToList();
+        _loading = false;
+    }
+}

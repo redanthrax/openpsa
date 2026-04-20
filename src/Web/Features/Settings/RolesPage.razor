@@ -1,7 +1,9 @@
 @page "/settings/roles"
+@layout SettingsLayout
 @inject IApiClient Api
 @inject IDialogService Dialog
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Roles — OpenPsa</PageTitle>
 
@@ -9,7 +11,7 @@
     <MudText Typo="Typo.h5">Roles</MudText>
     <HasPermission Permission="roles.create">
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New Role</MudButton>
+            OnClick="@(() => Nav.NavigateTo("/settings/roles/new"))">New Role</MudButton>
     </HasPermission>
 </div>
 
@@ -60,10 +62,6 @@
         _loading = false;
     }
 
-    private async Task OpenCreateDialog() {
-        var dialog = await Dialog.ShowAsync<RoleDialog>("New Role");
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
 
     private async Task OpenEditDialog(Contracts.Roles.RoleDto role) {
         var param = new DialogParameters<RoleDialog> { { x => x.Role, role } };

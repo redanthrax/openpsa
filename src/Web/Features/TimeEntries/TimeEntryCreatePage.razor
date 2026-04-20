@@ -1,0 +1,101 @@
+@page "/time-entries/new"
+@using Contracts.TimeEntries
+@using Contracts.Clients
+@using Contracts.Projects
+@using Contracts.Tickets
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Log Time — OpenPsa</PageTitle>
+
+<FormPage Title="Log Time" BackUrl="/time-entries" Saving="_saving" Valid="_valid" OnSave="SaveAsync" Loading="_loading">
+    <MudForm @ref="_form" @bind-IsValid="_valid">
+        <MudAutocomplete T="ClientSummaryDto" Label="Client" Required="true"
+            Value="_client" ValueChanged="OnClientChanged" SearchFunc="SearchClientsAsync"
+            ToStringFunc="@(c => c?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="ProjectSummaryDto" Label="Project (optional)"
+            @bind-Value="_project" SearchFunc="SearchProjectsAsync"
+            ToStringFunc="@(p => p?.Name ?? string.Empty)"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudAutocomplete T="TicketSummaryDto" Label="Ticket (optional)"
+            @bind-Value="_ticket" SearchFunc="SearchTicketsAsync"
+            ToStringFunc="@(t => t is null ? string.Empty : $"#{t.Id.ToString()[..8]} — {t.Title}")"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_date" Label="Date" Required="true"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudNumericField @bind-Value="_model.Hours" Label="Hours" Required="true"
+            Min="0.25m" Max="24m" Step="0.25m" Format="N2"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Description" Label="Description" Lines="2"
+            Variant="Variant.Outlined" Class="mb-3" />
+        <MudCheckBox @bind-Value="_model.Billable" Label="Billable" />
+    </MudForm>
+</FormPage>
+
+@code {
+    private readonly CreateTimeEntryRequest _model = new() { Date = DateTime.Today, Billable = true };
+    private ClientSummaryDto? _client;
+    private ProjectSummaryDto? _project;
+    private TicketSummaryDto? _ticket;
+    private List<ClientSummaryDto> _allClients = [];
+    private List<ProjectSummaryDto> _allProjects = [];
+    private List<TicketSummaryDto> _allTickets = [];
+    private DateTime? _date = DateTime.Today;
+    private MudForm _form = null!;
+    private bool _valid, _saving, _loading = true;
+
+    protected override async Task OnInitializedAsync() {
+        var cr = await Api.GetAsync<List<ClientSummaryDto>>("/api/clients");
+        if (cr.Success && cr.Data is not null) _allClients = cr.Data;
+        _loading = false;
+    }
+
+    private async void OnClientChanged(ClientSummaryDto? client) {
+        _client = client;
+        _project = null;
+        _ticket = null;
+        if (client is not null) {
+            var r1 = await Api.GetAsync<List<ProjectSummaryDto>>($"/api/projects?clientId={client.Id}");
+            if (r1.Success && r1.Data is not null) _allProjects = r1.Data;
+            var r2 = await Api.GetAsync<List<TicketSummaryDto>>($"/api/tickets?clientId={client.Id}");
+            if (r2.Success && r2.Data is not null) _allTickets = r2.Data;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task<IEnumerable<ClientSummaryDto>> SearchClientsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allClients
+            : _allClients.Where(c => c.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ClientSummaryDto>>(res);
+    }
+
+    private Task<IEnumerable<ProjectSummaryDto>> SearchProjectsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allProjects
+            : _allProjects.Where(p => p.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<ProjectSummaryDto>>(res);
+    }
+
+    private Task<IEnumerable<TicketSummaryDto>> SearchTicketsAsync(string? val, CancellationToken ct) {
+        var res = string.IsNullOrWhiteSpace(val) ? _allTickets
+            : _allTickets.Where(t => t.Title.Contains(val, StringComparison.OrdinalIgnoreCase)).ToList();
+        return Task.FromResult<IEnumerable<TicketSummaryDto>>(res);
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_valid || _client is null || _date is null) return;
+        _saving = true;
+        _model.ClientId = _client.Id;
+        _model.ProjectId = _project?.Id;
+        _model.TicketId = _ticket?.Id;
+        _model.Date = _date.Value;
+        var r = await Api.PostAsync<TimeEntryDto>("/api/time-entries", _model);
+        if (r.Success) {
+            Snackbar.Add("Time logged.", Severity.Success);
+            Nav.NavigateTo("/time-entries");
+        }
+        _saving = false;
+    }
+}

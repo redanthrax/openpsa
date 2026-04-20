@@ -16,10 +16,20 @@ namespace OpenPsa.Modules.Notes.Features.GetNotes;
 
 public class GetNotesEndpoint : IEndpointFeature {
     public static void MapEndpoint(IEndpointRouteBuilder app) {
-        app.MapGet("/api/notes/{entityType}/{entityId:guid}", async (string entityType, Guid entityId, OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
-            var notes = await db.Set<Note>()
+        app.MapGet("/api/notes/{entityType}/{entityId:guid}", async (
+            string entityType, Guid entityId,
+            int page = 1, int pageSize = 25,
+            OpenPsaDbContext db = default!, IMessageBus bus = default!,
+            CancellationToken ct = default) => {
+
+            var query = db.Set<Note>()
                 .Where(n => n.EntityType == entityType && n.EntityId == entityId)
-                .OrderByDescending(n => n.CreatedAt)
+                .OrderByDescending(n => n.CreatedAt);
+
+            var totalCount = await query.CountAsync(ct);
+            var notes = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
 
             var userIds = notes.Select(n => n.UserId).Distinct().ToList();
@@ -32,11 +42,12 @@ public class GetNotesEndpoint : IEndpointFeature {
                 Content = n.Content,
                 UserId = n.UserId.ToString(),
                 UserName = userNames.GetValueOrDefault(n.UserId, string.Empty),
+                IsInternal = n.IsInternal,
                 CreatedAt = n.CreatedAt,
                 UpdatedAt = n.UpdatedAt
-            });
+            }).ToList();
 
-            return Results.Ok(Result.Ok(dtos));
+            return Results.Ok(PagedResult.Ok<NoteDto>(dtos, totalCount, page, pageSize));
         }).RequirePermission("notes.list").WithTags("Notes");
     }
 }

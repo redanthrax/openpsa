@@ -1,59 +1,46 @@
 @page "/projects"
 @inject IApiClient Api
-@inject IDialogService Dialog
-@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Projects — OpenPsa</PageTitle>
 
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h5">Projects</MudText>
-    <HasPermission Permission="projects.create">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            OnClick="OpenCreateDialog">New Project</MudButton>
-    </HasPermission>
 </div>
 
-<MudCard>
-    <MudCardContent Class="pa-0">
-        <MudDataGrid T="Contracts.Projects.ProjectSummaryDto" Items="_projects" Loading="_loading"
-            Filterable="true" FilterMode="DataGridFilterMode.Simple" SortMode="SortMode.Multiple"
-            Hover="true" Dense="true">
-            <Columns>
-                <PropertyColumn Property="x => x.Name" Title="Name" />
-                <PropertyColumn Property="x => x.ClientName" Title="Client" />
-                <PropertyColumn Property="x => x.Status" Title="Status">
-                    <CellTemplate>
-                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
-                            @context.Item.Status
-                        </MudChip>
-                    </CellTemplate>
-                </PropertyColumn>
-                <TemplateColumn Title="Hours" SortBy="x => x.LoggedHours">
-                    <CellTemplate>
-                        @if (context.Item.BudgetHours.HasValue) {
-                            <MudText>@context.Item.LoggedHours / @context.Item.BudgetHours h</MudText>
-                        } else {
-                            <MudText>@context.Item.LoggedHours h</MudText>
-                        }
-                    </CellTemplate>
-                </TemplateColumn>
-                <PropertyColumn Property="x => x.EndDate" Title="Due" Format="MMM d, yyyy" />
-                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
-                    <CellTemplate>
-                        <HasPermission Permission="projects.update">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                OnClick="@(() => OpenEditDialog(context.Item.Id))" />
-                        </HasPermission>
-                        <HasPermission Permission="projects.delete">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                OnClick="@(() => DeleteAsync(context.Item.Id, context.Item.Name))" />
-                        </HasPermission>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
-    </MudCardContent>
-</MudCard>
+<DataGridPage T="Contracts.Projects.ProjectSummaryDto" Items="_projects" Loading="_loading"
+    SearchFunc="@((Func<Contracts.Projects.ProjectSummaryDto, string>)(x => $"{x.Name} {x.ClientName} {x.Status}"))"
+    RowClick="@(args => Nav.NavigateTo($"/projects/{args.Item.Id}"))">
+    <ToolbarContent>
+        <HasPermission Permission="projects.create">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Nav.NavigateTo("/projects/new"))">
+                New Project
+            </MudButton>
+        </HasPermission>
+    </ToolbarContent>
+    <Columns>
+        <PropertyColumn T="Contracts.Projects.ProjectSummaryDto" TProperty="string" Property="x => x.Name" Title="Name" />
+        <PropertyColumn T="Contracts.Projects.ProjectSummaryDto" TProperty="string" Property="x => x.ClientName" Title="Client" />
+        <PropertyColumn T="Contracts.Projects.ProjectSummaryDto" TProperty="Contracts.Projects.ProjectStatus" Property="x => x.Status" Title="Status">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Item.Status)">
+                    @context.Item.Status
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn T="Contracts.Projects.ProjectSummaryDto" Title="Hours" SortBy="x => x.LoggedHours">
+            <CellTemplate>
+                @if (context.Item.BudgetHours.HasValue) {
+                    <MudText>@context.Item.LoggedHours / @context.Item.BudgetHours h</MudText>
+                } else {
+                    <MudText>@context.Item.LoggedHours h</MudText>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn T="Contracts.Projects.ProjectSummaryDto" TProperty="DateTime?" Property="x => x.EndDate" Title="Due" Format="MMM d, yyyy" />
+    </Columns>
+</DataGridPage>
 
 @code {
     private List<Contracts.Projects.ProjectSummaryDto> _projects = [];
@@ -63,29 +50,11 @@
 
     private async Task LoadAsync() {
         _loading = true;
-        var result = await Api.GetAsync<List<Contracts.Projects.ProjectSummaryDto>>("/api/projects");
-        if (result.Success && result.Data is not null) _projects = result.Data;
+        var result = await Api.GetPagedAsync<Contracts.Projects.ProjectSummaryDto>("/api/projects?page=1&pageSize=1000");
+        if (result.Success && result.Data is not null) _projects = result.Data.ToList();
         _loading = false;
     }
 
-    private async Task OpenCreateDialog() {
-        var dialog = await Dialog.ShowAsync<ProjectDialog>("New Project");
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task OpenEditDialog(Guid id) {
-        var param = new DialogParameters<ProjectDialog> { { x => x.ProjectId, id } };
-        var dialog = await Dialog.ShowAsync<ProjectDialog>("Edit Project", param);
-        if (!(await dialog.Result).Canceled) await LoadAsync();
-    }
-
-    private async Task DeleteAsync(Guid id, string name) {
-        var ok = await Dialog.ShowMessageBox("Delete Project",
-            $"Delete \"{name}\"? This cannot be undone.", "Delete", cancelText: "Cancel");
-        if (ok != true) return;
-        var result = await Api.DeleteAsync<object>($"/api/projects/{id}");
-        if (result.Success) { Snackbar.Add("Project deleted.", Severity.Success); await LoadAsync(); }
-    }
 
     private static Color StatusColor(Contracts.Projects.ProjectStatus s) => s switch {
         Contracts.Projects.ProjectStatus.Active => Color.Success,

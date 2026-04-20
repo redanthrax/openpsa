@@ -1,0 +1,83 @@
+@page "/clients/{Id:guid}"
+@layout Layout.ClientLayout
+@using Contracts.Clients
+@inject IApiClient Api
+@inject IDialogService Dialog
+@inject NavigationManager Nav
+
+<PageTitle>@(_client?.Name ?? "Client") — OpenPsa</PageTitle>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else if (_client is null) {
+    <MudText>Client not found.</MudText>
+} else {
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h5">Overview</MudText>
+        <HasPermission Permission="clients.update">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit"
+                OnClick="EditAsync">Edit</MudButton>
+        </HasPermission>
+    </div>
+
+    <MudCard Class="mb-4" Style="max-width: 500px;">
+        <MudCardContent>
+            <div class="d-flex align-center gap-2 mb-3">
+                <MudText Typo="Typo.h6">@_client.Name</MudText>
+                <MudChip T="string" Size="Size.Small"
+                    Color="@(_client.Status == ClientStatus.Active ? Color.Success : Color.Default)">
+                    @_client.Status
+                </MudChip>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_client.Email)) {
+                <div class="mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Email</MudText>
+                    <MudText>@_client.Email</MudText>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_client.Phone)) {
+                <div class="mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Phone</MudText>
+                    <MudText>@_client.Phone</MudText>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_client.Website)) {
+                <div class="mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Website</MudText>
+                    <MudLink Href="@_client.Website" Target="_blank">@_client.Website</MudLink>
+                </div>
+            }
+            <div class="mb-2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Created</MudText>
+                <MudText>@_client.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</MudText>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_client.Notes)) {
+                <div class="mt-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Notes</MudText>
+                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@_client.Notes</MudText>
+                </div>
+            }
+        </MudCardContent>
+    </MudCard>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ClientDto? _client;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync() {
+        _loading = true;
+        var result = await Api.GetAsync<ClientDto>($"/api/clients/{Id}");
+        if (result.Success) _client = result.Data;
+        _loading = false;
+    }
+
+    private async Task EditAsync() {
+        var param = new DialogParameters<ClientDialog> { { x => x.ClientId, Id } };
+        var dialog = await Dialog.ShowAsync<ClientDialog>("Edit Client", param);
+        if (!(await dialog.Result).Canceled)
+            await OnParametersSetAsync();
+    }
+}

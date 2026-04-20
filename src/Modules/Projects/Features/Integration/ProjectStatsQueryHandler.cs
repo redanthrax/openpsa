@@ -14,4 +14,12 @@ public class ProjectStatsQueryHandler {
         var count = await _db.Set<Project>().CountAsync(p => p.Status == ProjectStatus.Active);
         return new(count);
     }
+
+    public async Task<GetActiveProjectCountsByClientResponse> Handle(GetActiveProjectCountsByClientQuery query) {
+        var counts = await _db.Set<Project>()
+            .Where(p => query.ClientIds.Contains(p.ClientId) && p.Status == ProjectStatus.Active)
+            .GroupBy(p => p.ClientId)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+        return new(counts);
+    }
 }

@@ -27,12 +27,6 @@
             </MudNavLink>
         </HasPermission>
 
-        <HasPermission Permission="sites.list">
-            <MudNavLink Href="/sites" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LocationOn">
-                Sites
-            </MudNavLink>
-        </HasPermission>
-
         <HasPermission Permission="projects.list">
             <MudNavLink Href="/projects" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FolderOpen">
                 Projects
@@ -78,32 +72,9 @@
         <MudDivider Class="my-2" />
 
         <HasPermission AnyPermissions="@(new[]{"users.list","roles.list","settings.view","audit.list","sla-policies.list","ticket-queues.list","rate-cards.list","mailbox-connections.list"})">
-            <MudNavGroup Title="Settings" Icon="@Icons.Material.Filled.Settings" Expanded="false">
-                <HasPermission Permission="users.list">
-                    <MudNavLink Href="/settings/users">Users</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="roles.list">
-                    <MudNavLink Href="/settings/roles">Roles</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="settings.view">
-                    <MudNavLink Href="/settings/general">General</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="sla-policies.list">
-                    <MudNavLink Href="/sla-policies">SLA Policies</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="ticket-queues.list">
-                    <MudNavLink Href="/ticket-queues">Ticket Queues</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="rate-cards.list">
-                    <MudNavLink Href="/rate-cards">Rate Cards</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="mailbox-connections.list">
-                    <MudNavLink Href="/mailbox-connections">Email Connections</MudNavLink>
-                </HasPermission>
-                <HasPermission Permission="audit.list">
-                    <MudNavLink Href="/settings/audit">Audit Log</MudNavLink>
-                </HasPermission>
-            </MudNavGroup>
+            <MudNavLink Href="/settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+                Settings
+            </MudNavLink>
         </HasPermission>
     }
 </MudNavMenu>

@@ -7,4 +7,5 @@ public class Note : BaseEntity {
     public Guid EntityId { get; set; }
     public string Content { get; set; } = string.Empty;
     public Guid UserId { get; set; }
+    public bool IsInternal { get; set; }
 }

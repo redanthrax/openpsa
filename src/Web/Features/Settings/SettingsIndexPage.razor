@@ -1,0 +1,91 @@
+@page "/settings"
+@layout SettingsLayout
+
+<PageTitle>Settings — OpenPsa</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Settings</MudText>
+
+<MudGrid>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/general")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Tune" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">General</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Company name, currency, payment terms</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/users")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Users & Roles</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage team members and permissions</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/ticket-queues")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Queue" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Service Desk</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Queues, SLA policies, business hours</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/rate-cards")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.RequestQuote" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Billing</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Rate cards and pricing configuration</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/email")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Email" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Integrations</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Email connections and external services</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Outlined="true" Class="cursor-pointer" @onclick='() => Nav.NavigateTo("/settings/audit")'>
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Audit Log</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Track all changes across the system</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+}

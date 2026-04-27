@@ -1,0 +1,18 @@
+# Build artifacts and IDE clutter that shouldn't slip into the docker context.
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/TestResults/
+**/.git/
+**/.github/
+docs/
+*.md
+docker-compose.yml
+.editorconfig
+deploy/
+scripts/
+LICENSE
+.dockerignore

@@ -48,53 +48,68 @@ Both services should show `healthy` status.
 
 ## 3. Configure Secrets
 
-The API uses [.NET User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) for sensitive configuration in development. The `UserSecretsId` is already configured in `src/Api/Api.csproj`.
+All sensitive configuration lives in [.NET User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — never in `appsettings*.json`. Both the `Api` and `Seed` projects already have a `UserSecretsId` configured.
 
-### Required secrets
+> **Rule:** if a value is a connection string, password, signing key, OAuth secret, API key, or anything else you would not paste into a public chat, it belongs in user-secrets (dev) or environment variables / Key Vault (prod). It does **not** belong in any committed file.
+
+### Required secrets (API)
 
 ```bash
-# JWT signing key (minimum 32 characters)
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
+  "Host=localhost;Port=5432;Database=openpsa;Username=postgres;Password=postgres" \
+  --project src/Api
+
+dotnet user-secrets set "Redis:ConnectionString" "localhost:6379" --project src/Api
+
 dotnet user-secrets set "Jwt:Secret" "your-development-secret-key-min-32-characters-long" --project src/Api
 ```
 
-### Optional secrets
+### Required secrets (Seed)
+
+The Seed project reads the same connection string. Set it once for `src/Seed` too:
 
 ```bash
-# Google OAuth (for Google login)
-dotnet user-secrets set "Authentication:Google:ClientId" "<your-google-client-id>" --project src/Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
+  "Host=localhost;Port=5432;Database=openpsa;Username=postgres;Password=postgres" \
+  --project src/Seed
+```
+
+### Optional secrets — OAuth providers
+
+```bash
+# Google OAuth
+dotnet user-secrets set "Authentication:Google:ClientId"     "<your-google-client-id>"     --project src/Api
 dotnet user-secrets set "Authentication:Google:ClientSecret" "<your-google-client-secret>" --project src/Api
 
-# Microsoft OAuth (for Microsoft login)
-dotnet user-secrets set "Authentication:Microsoft:ClientId" "<your-microsoft-client-id>" --project src/Api
+# Microsoft OAuth
+dotnet user-secrets set "Authentication:Microsoft:ClientId"     "<your-microsoft-client-id>"     --project src/Api
 dotnet user-secrets set "Authentication:Microsoft:ClientSecret" "<your-microsoft-client-secret>" --project src/Api
 ```
 
-### What's already in `appsettings.Development.json`
+### What lives in `appsettings.json`
 
-These values are checked into source control and are fine for local development:
+Only non-sensitive defaults — currently just Serilog log levels. Do **not** add connection strings, JWT keys, OAuth secrets, or anything environment-specific. Per-environment overrides (`appsettings.Development.json`, `appsettings.Production.json`, etc.) are gitignored to prevent accidental commits.
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=openpsa;Username=postgres;Password=postgres"
-  },
-  "Redis": {
-    "ConnectionString": "localhost:6379"
-  },
-  "Jwt": {
-    "Issuer": "openpsa",
-    "Audience": "openpsa",
-    "ExpiryMinutes": "480"
-  }
-}
+The Blazor WASM client at `src/Web/wwwroot/appsettings.json` is the one exception — it ships to the browser and may only contain public values (e.g. the API base URL).
+
+### Container / production overrides
+
+Use environment variables with `__` as the section separator:
+
+```bash
+ConnectionStrings__DefaultConnection="Host=...;..."
+Redis__ConnectionString="redis:6379"
+Jwt__Secret="..."
+Authentication__Google__ClientSecret="..."
 ```
 
-> **Never put real secrets in appsettings files.** Use `dotnet user-secrets` for anything sensitive (API keys, OAuth credentials, production connection strings).
+In production, source these from Azure Key Vault, AWS Secrets Manager, or Kubernetes Secrets — not from files baked into images.
 
 ### View configured secrets
 
 ```bash
 dotnet user-secrets list --project src/Api
+dotnet user-secrets list --project src/Seed
 ```
 
 ---
@@ -295,7 +310,7 @@ dotnet run --project src/Seed
 
 ### Port conflicts
 
-If `5432` or `6379` are already in use, stop the conflicting services or change the ports in `docker-compose.yml` and update `appsettings.Development.json` to match.
+If `5432` or `6379` are already in use, stop the conflicting services or change the ports in `docker-compose.yml` and update the corresponding user-secret (`ConnectionStrings:DefaultConnection` / `Redis:ConnectionString`) to match.
 
 ### Reset everything
 

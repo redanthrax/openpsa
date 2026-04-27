@@ -1,0 +1,11 @@
+apiVersion: v2
+name: openpsa
+description: OpenPSA — open-source PSA platform (API + Blazor WASM web)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/redanthrax/openpsa
+sources:
+  - https://github.com/redanthrax/openpsa
+maintainers:
+  - name: redanthrax

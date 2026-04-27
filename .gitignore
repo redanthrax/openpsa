@@ -1,83 +1,178 @@
-# Build outputs
-bin/
-obj/
+# ──────────────────────────────────────────────
+# Build outputs (case-insensitive, nested anywhere)
+# ──────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
 out/
+[Oo]ut/
+artifacts/
+publish/
+[Pp]ublish/
+
+# Defensive: literal-backslash directories created by Windows tools on *nix
+# (e.g. "bin\Debug" as a single filename). These do NOT match bin/ rules.
+**/bin\\*
+**/obj\\*
+**/*\\Debug
+**/*\\Release
+
+# ──────────────────────────────────────────────
+# IDE / editor
+# ──────────────────────────────────────────────
+.vs/
+.vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+.fleet/
+.ionide/
+.history/
+*.swp
+*.swo
+*~
 
 # Visual Studio / Rider
-.vs/
-.idea/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 *.userprefs
+*.ncrunchproject
+*.ncrunchsolution
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
 
-# Rider
-.idea/
+# ──────────────────────────────────────────────
+# .NET binaries / debug / cache
+# ──────────────────────────────────────────────
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+StyleCopReport.xml
+*.GhostDoc.xml
 
-# VS Code
-.vscode/
-!.vscode/extensions.json
-!.vscode/launch.json
-!.vscode/tasks.json
-
+# ──────────────────────────────────────────────
 # NuGet
+# ──────────────────────────────────────────────
 *.nupkg
 *.snupkg
 .nuget/
 packages/
 project.lock.json
 project.fragment.lock.json
-artifacts/
 
-# .NET
-*.dll
-*.exe
-*.pdb
-*.cache
-*.log
+# ──────────────────────────────────────────────
+# Test / coverage / benchmark output
+# ──────────────────────────────────────────────
+[Tt]est[Rr]esults/
+coverage/
+coverage.*.xml
+*.coverage
+*.coveragexml
+*.trx
+*.dotCover
+*.psess
+*.vspx
+BenchmarkDotNet.Artifacts/
+.sonarqube/
+.ProjectModel/
 
-# Blazor WASM
-wwwroot/_framework/
+# Verify (snapshot testing)
+*.received.*
+*.received/
 
-# Entity Framework migrations temp
-*.mdf
-*.ldf
-
-# User secrets (local dev only)
+# ──────────────────────────────────────────────
+# Secrets — DO NOT COMMIT
+# ──────────────────────────────────────────────
 **/secrets.json
+# Per-environment overrides — must NOT be committed. Use `dotnet user-secrets`
+# (development) or environment variables / Key Vault (production) instead.
 **/appsettings.Development.json
-
-# Environment / secrets
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
 .env
 .env.*
 !.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.jks
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.kubeconfig
+kubeconfig*
+azure.auth
+*.publishsettings
+*.azurePubxml
 
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
+# ──────────────────────────────────────────────
+# Infrastructure / deployment local state
+# ──────────────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.tye/
+deploy/**/values.local.yaml
+deploy/**/*.local.yaml
+deploy/**/*.local.yml
 
-# Logs
+# ──────────────────────────────────────────────
+# Logs / runtime data
+# ──────────────────────────────────────────────
 logs/
 *.log
 serilog*.json
-
-# Docker volumes / data
-postgres-data/
-redis-data/
-
-# DataProtection keys
 .keys/
 
-# Test results
-TestResults/
-coverage/
-*.trx
-*.coveragexml
+# ──────────────────────────────────────────────
+# Docker volumes
+# ──────────────────────────────────────────────
+postgres-data/
+postgres_data/
+redis-data/
+redis_data/
 
-# Publish output
-publish/
+# ──────────────────────────────────────────────
+# Entity Framework local scratch
+# ──────────────────────────────────────────────
+*.mdf
+*.ldf
 
-# Dev working docs
+# ──────────────────────────────────────────────
+# Blazor WASM build cache
+# ──────────────────────────────────────────────
+wwwroot/_framework/
+
+# ──────────────────────────────────────────────
+# OS
+# ──────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ──────────────────────────────────────────────
+# Local working notes
+# ──────────────────────────────────────────────
 dev/
+TODO.local.md
+NOTES.local.md

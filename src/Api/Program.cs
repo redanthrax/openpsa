@@ -4,29 +4,34 @@ using Common.Authentication;
 using Common.Authorization;
 using Common.Caching;
 using Common.Database;
+using Common.ErrorHandling;
 using Common.Modules;
 using Common.Notifications;
+using Common.Observability;
+using Common.RateLimiting;
 using Common.Security;
+using Common.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenPsa.Modules.Agreements;
+using OpenPsa.Modules.Assets;
 using OpenPsa.Modules.Authentication;
 using OpenPsa.Modules.Clients;
 using OpenPsa.Modules.Contacts;
 using OpenPsa.Modules.Dashboard;
+using OpenPsa.Modules.Email;
+using OpenPsa.Modules.Expenses;
 using OpenPsa.Modules.Invoicing;
 using OpenPsa.Modules.Notes;
 using OpenPsa.Modules.Projects;
 using OpenPsa.Modules.Security;
 using OpenPsa.Modules.Settings;
+using OpenPsa.Modules.Sla;
 using OpenPsa.Modules.Tickets;
 using OpenPsa.Modules.TimeEntries;
-using OpenPsa.Modules.Agreements;
-using OpenPsa.Modules.Assets;
-using OpenPsa.Modules.Email;
-using OpenPsa.Modules.Expenses;
-using OpenPsa.Modules.Sla;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Formatting.Compact;
@@ -53,7 +58,7 @@ try {
 
         if (ctx.HostingEnvironment.IsDevelopment())
             config.WriteTo.Console(outputTemplate:
-                "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}{NewLine}    {Message:lj}{NewLine}{Exception}");
+                "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} cid={CorrelationId}{NewLine}    {Message:lj}{NewLine}{Exception}");
         else
             config.WriteTo.Console(new CompactJsonFormatter());
     });
@@ -82,6 +87,13 @@ try {
 
     services.AddSingleton<IPermissionRegistry>(new PermissionRegistry());
     services.AddModules(moduleAssemblies);
+
+    foreach (var asm in moduleAssemblies)
+        services.AddValidatorsFromAssembly(asm, includeInternalTypes: true);
+    services.AddScoped<ValidationEndpointFilter>();
+
+    services.AddProblemDetailsHandling();
+    services.AddOpenPsaRateLimiting(configuration);
 
     services.AddAuthenticationServices();
     services.AddAuditTrail();
@@ -194,8 +206,15 @@ try {
 
     var app = builder.Build();
 
-    app.UseSerilogRequestLogging();
+    app.UseCorrelationId();
+    app.UseProblemDetailsHandling();
+    app.UseSerilogRequestLogging(opts => {
+        opts.EnrichDiagnosticContext = (diag, http) => {
+            diag.Set("CorrelationId", http.TraceIdentifier);
+        };
+    });
     app.UseCors();
+    app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment()) {
         app.MapOpenApi();
@@ -214,12 +233,10 @@ try {
     app.MapHealthChecks("/health");
 
     await app.RunAsync();
-}
-catch (Exception ex) when (ex is not HostAbortedException) {
+} catch (Exception ex) when (ex is not HostAbortedException) {
     Log.Fatal(ex, "Application terminated unexpectedly");
     return 1;
-}
-finally {
+} finally {
     await Log.CloseAndFlushAsync();
 }
 

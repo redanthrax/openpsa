@@ -40,7 +40,10 @@
     private MudDataGrid<T> _grid = null!;
     private string? _search;
     private int _pageSize = 25;
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "CS0649", Justification = "Bound via MudDataGrid CurrentPage attribute in markup.")]
+#pragma warning disable CS0649
     private int _currentPage;
+#pragma warning restore CS0649
 
     private IEnumerable<T> _filteredItems => string.IsNullOrWhiteSpace(_search) || SearchFunc is null
         ? Items

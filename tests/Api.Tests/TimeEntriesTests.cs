@@ -7,7 +7,8 @@ using FluentAssertions;
 
 namespace Api.Tests;
 
-public class TimeEntriesTests : IClassFixture<OpenPsaFactory> {
+[Collection(IntegrationCollection.Name)]
+public class TimeEntriesTests {
     private readonly HttpClient _client;
 
     public TimeEntriesTests(OpenPsaFactory factory) {

@@ -58,7 +58,7 @@
         _loading = false;
 
         if (result.Success && result.Data is not null) {
-            await TokenStore.SetTokenAsync(result.Data.Token);
+            await TokenStore.SetTokensAsync(result.Data.Token, result.Data.RefreshToken);
             AuthState.NotifyStateChanged();
             Nav.NavigateTo("/");
         } else {
@@ -75,5 +75,5 @@
         public string Password { get; set; } = string.Empty;
     }
 
-    private sealed record LoginResponse(string Token, string UserId, string Email, string Name);
+    private sealed record LoginResponse(string Token, string RefreshToken, string UserId, string Email, string Name);
 }

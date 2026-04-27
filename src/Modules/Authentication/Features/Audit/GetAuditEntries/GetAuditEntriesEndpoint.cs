@@ -19,27 +19,27 @@ public class GetAuditEntriesEndpoint : IEndpointFeature {
             int pageSize = 50,
             CancellationToken ct = default) => {
 
-            var query = db.Set<AuditEntry>().OrderByDescending(a => a.CreatedAt);
-            var total = await query.CountAsync(ct);
-            var items = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(a => new AuditEntryDto {
-                    Id = a.Id,
-                    EntityName = a.EntityName,
-                    EntityId = a.EntityId,
-                    Action = a.Action.ToString(),
-                    OldValues = a.OldValues,
-                    NewValues = a.NewValues,
-                    ChangedProperties = a.ChangedProperties,
-                    UserId = a.UserId,
-                    UserEmail = a.UserEmail,
-                    UserName = a.UserName,
-                    CreatedAt = a.CreatedAt
-                })
-                .ToListAsync(ct);
+                var query = db.Set<AuditEntry>().OrderByDescending(a => a.CreatedAt);
+                var total = await query.CountAsync(ct);
+                var items = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(a => new AuditEntryDto {
+                        Id = a.Id,
+                        EntityName = a.EntityName,
+                        EntityId = a.EntityId,
+                        Action = a.Action.ToString(),
+                        OldValues = a.OldValues,
+                        NewValues = a.NewValues,
+                        ChangedProperties = a.ChangedProperties,
+                        UserId = a.UserId,
+                        UserEmail = a.UserEmail,
+                        UserName = a.UserName,
+                        CreatedAt = a.CreatedAt
+                    })
+                    .ToListAsync(ct);
 
-            return Results.Ok(PagedResult.Ok(items, total, page, pageSize));
-        }).RequirePermission("audit.list").WithTags("Audit");
+                return Results.Ok(PagedResult.Ok(items, total, page, pageSize));
+            }).RequirePermission("audit.list").WithTags("Audit");
     }
 }

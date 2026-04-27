@@ -1,5 +1,7 @@
-# Infrastructure only — start these before running the API or Web locally.
-# Usage: docker compose up -d
+# Infrastructure for local dev — start these before running the API or Web locally.
+# Usage:
+#   docker compose up -d                  # postgres + redis only (default)
+#   docker compose --profile app up -d    # also build & run api + web
 
 services:
 
@@ -33,6 +35,33 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=openpsa;Username=postgres;Password=postgres"
+      Redis__ConnectionString: "redis:6379"
+    ports:
+      - "8080:8080"
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: src/Web/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "8081:8080"
 
 volumes:
   postgres_data:

@@ -20,27 +20,27 @@ public class GetCurrentUserEndpoint : IEndpointFeature {
             IPermissionService permissionService,
             CancellationToken ct) => {
 
-            if (!Guid.TryParse(userContext.UserId, out var userId))
-                return Results.Unauthorized();
+                if (!Guid.TryParse(userContext.UserId, out var userId))
+                    return Results.Unauthorized();
 
-            var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == userId, ct);
-            if (user == null) return Results.Unauthorized();
+                var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == userId, ct);
+                if (user == null) return Results.Unauthorized();
 
-            var roles = await db.Set<Role>()
-                .Where(r => user.RoleIds.Contains(r.Id))
-                .Select(r => r.Name)
-                .ToListAsync(ct);
+                var roles = await db.Set<Role>()
+                    .Where(r => user.RoleIds.Contains(r.Id))
+                    .Select(r => r.Name)
+                    .ToListAsync(ct);
 
-            var permissions = await permissionService.GetUserPermissionsAsync(userId, ct);
+                var permissions = await permissionService.GetUserPermissionsAsync(userId, ct);
 
-            return Results.Ok(Result.Ok(new CurrentUserDto {
-                Id = user.Id.ToString(),
-                Email = user.Email,
-                Name = user.Name,
-                IsSuperAdmin = user.IsSuperAdmin,
-                Roles = roles,
-                Permissions = permissions.ToList()
-            }));
-        }).WithTags("Users");
+                return Results.Ok(Result.Ok(new CurrentUserDto {
+                    Id = user.Id.ToString(),
+                    Email = user.Email,
+                    Name = user.Name,
+                    IsSuperAdmin = user.IsSuperAdmin,
+                    Roles = roles,
+                    Permissions = permissions.ToList()
+                }));
+            }).WithTags("Users");
     }
 }

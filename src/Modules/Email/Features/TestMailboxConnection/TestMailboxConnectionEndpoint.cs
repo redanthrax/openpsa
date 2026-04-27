@@ -17,26 +17,25 @@ public class TestMailboxConnectionEndpoint : IEndpointFeature {
         app.MapPost("/api/mailbox-connections/{id:guid}/test", async (
             Guid id, OpenPsaDbContext db, IPiiEncryptionService pii, GraphMailService graphMail, CancellationToken ct) => {
 
-            var connection = await db.Set<MailboxConnection>().FindAsync([id], ct);
-            if (connection is null)
-                return Results.Json(Result.Fail<TestMailboxConnectionResult>("Mailbox connection not found"), statusCode: 404);
+                var connection = await db.Set<MailboxConnection>().FindAsync([id], ct);
+                if (connection is null)
+                    return Results.Json(Result.Fail<TestMailboxConnectionResult>("Mailbox connection not found"), statusCode: 404);
 
-            var result = new TestMailboxConnectionResult();
+                var result = new TestMailboxConnectionResult();
 
-            try {
-                if (connection.Provider == MailboxProvider.Imap) {
-                    result = await TestImapAsync(connection, pii, ct);
-                } else {
-                    result = await graphMail.TestConnectionAsync(connection, ct);
+                try {
+                    if (connection.Provider == MailboxProvider.Imap) {
+                        result = await TestImapAsync(connection, pii, ct);
+                    } else {
+                        result = await graphMail.TestConnectionAsync(connection, ct);
+                    }
+                } catch (Exception ex) {
+                    result.Success = false;
+                    result.Message = $"Connection failed: {ex.Message}";
                 }
-            }
-            catch (Exception ex) {
-                result.Success = false;
-                result.Message = $"Connection failed: {ex.Message}";
-            }
 
-            return Results.Ok(Result.Ok(result));
-        }).RequirePermission("mailbox-connections.update").WithTags("Email");
+                return Results.Ok(Result.Ok(result));
+            }).RequirePermission("mailbox-connections.update").WithTags("Email");
     }
 
     private static async Task<TestMailboxConnectionResult> TestImapAsync(

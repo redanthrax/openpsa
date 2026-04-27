@@ -4,13 +4,13 @@ using Common.Modules;
 using Common.Security;
 using Contracts.Email;
 using Contracts.Results;
+using IntegrationEvents.Email;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using OpenPsa.Modules.Email.Models;
 using OpenPsa.Modules.Email.Services;
-using IntegrationEvents.Email;
 using Wolverine;
 
 namespace OpenPsa.Modules.Email.Features.SendTicketEmail;
@@ -21,72 +21,71 @@ public class SendTicketEmailEndpoint : IEndpointFeature {
             SendTicketEmailRequest request, OpenPsaDbContext db, IPiiEncryptionService pii,
             GraphMailService graphMail, IMessageBus bus, CancellationToken ct) => {
 
-            var mailbox = await db.Set<MailboxConnection>()
-                .Where(m => m.Status == MailboxConnectionStatus.Active)
-                .FirstOrDefaultAsync(ct);
+                var mailbox = await db.Set<MailboxConnection>()
+                    .Where(m => m.Status == MailboxConnectionStatus.Active)
+                    .FirstOrDefaultAsync(ct);
 
-            if (mailbox is null)
-                return Results.Json(Result.Fail<EmailMessageDto>("No active mailbox connection configured"), statusCode: 400);
+                if (mailbox is null)
+                    return Results.Json(Result.Fail<EmailMessageDto>("No active mailbox connection configured"), statusCode: 400);
 
-            var emailMsg = new EmailMessage {
-                MailboxConnectionId = mailbox.Id,
-                TicketId = request.TicketId,
-                Direction = EmailDirection.Outbound,
-                DeliveryStatus = EmailDeliveryStatus.Queued,
-                FromAddress = mailbox.EmailAddress,
-                FromName = mailbox.Name,
-                ToAddress = request.ToAddress,
-                Subject = request.Subject,
-                BodyHtml = request.BodyHtml,
-                SentAt = DateTime.UtcNow
-            };
+                var emailMsg = new EmailMessage {
+                    MailboxConnectionId = mailbox.Id,
+                    TicketId = request.TicketId,
+                    Direction = EmailDirection.Outbound,
+                    DeliveryStatus = EmailDeliveryStatus.Queued,
+                    FromAddress = mailbox.EmailAddress,
+                    FromName = mailbox.Name,
+                    ToAddress = request.ToAddress,
+                    Subject = request.Subject,
+                    BodyHtml = request.BodyHtml,
+                    SentAt = DateTime.UtcNow
+                };
 
-            string? inReplyTo = null;
-            string? references = null;
+                string? inReplyTo = null;
+                string? references = null;
 
-            var lastInbound = await db.Set<EmailMessage>()
-                .Where(e => e.TicketId == request.TicketId && e.Direction == EmailDirection.Inbound && e.MessageId != null)
-                .OrderByDescending(e => e.SentAt)
-                .Select(e => new { e.MessageId, e.References })
-                .FirstOrDefaultAsync(ct);
+                var lastInbound = await db.Set<EmailMessage>()
+                    .Where(e => e.TicketId == request.TicketId && e.Direction == EmailDirection.Inbound && e.MessageId != null)
+                    .OrderByDescending(e => e.SentAt)
+                    .Select(e => new { e.MessageId, e.References })
+                    .FirstOrDefaultAsync(ct);
 
-            if (lastInbound != null) {
-                inReplyTo = lastInbound.MessageId;
-                references = string.IsNullOrEmpty(lastInbound.References)
-                    ? lastInbound.MessageId
-                    : $"{lastInbound.References} {lastInbound.MessageId}";
-                emailMsg.InReplyTo = inReplyTo;
-                emailMsg.References = references;
-            }
-
-            try {
-                if (mailbox.Provider == MailboxProvider.Imap) {
-                    await SendViaSmtpAsync(mailbox, request, pii, inReplyTo, references, ct);
-                } else if (mailbox.Provider == MailboxProvider.MicrosoftGraph) {
-                    await graphMail.SendAsync(mailbox, request, inReplyTo, references, ct);
+                if (lastInbound != null) {
+                    inReplyTo = lastInbound.MessageId;
+                    references = string.IsNullOrEmpty(lastInbound.References)
+                        ? lastInbound.MessageId
+                        : $"{lastInbound.References} {lastInbound.MessageId}";
+                    emailMsg.InReplyTo = inReplyTo;
+                    emailMsg.References = references;
                 }
 
-                emailMsg.DeliveryStatus = EmailDeliveryStatus.Sent;
-            }
-            catch (Exception ex) {
-                emailMsg.DeliveryStatus = EmailDeliveryStatus.Failed;
-                emailMsg.ErrorDetails = ex.Message;
-            }
+                try {
+                    if (mailbox.Provider == MailboxProvider.Imap) {
+                        await SendViaSmtpAsync(mailbox, request, pii, inReplyTo, references, ct);
+                    } else if (mailbox.Provider == MailboxProvider.MicrosoftGraph) {
+                        await graphMail.SendAsync(mailbox, request, inReplyTo, references, ct);
+                    }
 
-            db.Set<EmailMessage>().Add(emailMsg);
-            mailbox.MessageCount++;
-            await db.SaveChangesAsync(ct);
+                    emailMsg.DeliveryStatus = EmailDeliveryStatus.Sent;
+                } catch (Exception ex) {
+                    emailMsg.DeliveryStatus = EmailDeliveryStatus.Failed;
+                    emailMsg.ErrorDetails = ex.Message;
+                }
 
-            if (emailMsg.DeliveryStatus == EmailDeliveryStatus.Sent)
-                await bus.PublishAsync(new EmailSent(emailMsg.Id, emailMsg.TicketId, emailMsg.ToAddress, emailMsg.Subject));
-            else
-                await bus.PublishAsync(new EmailDeliveryFailed(emailMsg.Id, emailMsg.ErrorDetails ?? "Unknown error"));
+                db.Set<EmailMessage>().Add(emailMsg);
+                mailbox.MessageCount++;
+                await db.SaveChangesAsync(ct);
 
-            var dto = MapToDto(emailMsg);
-            return emailMsg.DeliveryStatus == EmailDeliveryStatus.Sent
-                ? Results.Ok(Result.Ok(dto))
-                : Results.Json(Result.Fail<EmailMessageDto>($"Send failed: {emailMsg.ErrorDetails}"), statusCode: 500);
-        }).RequirePermission("email.send").WithTags("Email");
+                if (emailMsg.DeliveryStatus == EmailDeliveryStatus.Sent)
+                    await bus.PublishAsync(new EmailSent(emailMsg.Id, emailMsg.TicketId, emailMsg.ToAddress, emailMsg.Subject));
+                else
+                    await bus.PublishAsync(new EmailDeliveryFailed(emailMsg.Id, emailMsg.ErrorDetails ?? "Unknown error"));
+
+                var dto = MapToDto(emailMsg);
+                return emailMsg.DeliveryStatus == EmailDeliveryStatus.Sent
+                    ? Results.Ok(Result.Ok(dto))
+                    : Results.Json(Result.Fail<EmailMessageDto>($"Send failed: {emailMsg.ErrorDetails}"), statusCode: 500);
+            }).RequirePermission("email.send").WithTags("Email");
     }
 
     private static async Task SendViaSmtpAsync(

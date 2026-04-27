@@ -21,28 +21,28 @@ public class CreateExpenseEndpoint : IEndpointFeature {
             CreateExpenseRequest request, OpenPsaDbContext db, IMessageBus bus,
             HttpContext http, CancellationToken ct) => {
 
-            var userId = http.User.FindFirst("sub")?.Value
-                ?? http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userId = http.User.FindFirst("sub")?.Value
+                    ?? http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            var expense = new Expense {
-                Description = request.Description,
-                Category = request.Category,
-                Amount = request.Amount,
-                ExpenseDate = request.ExpenseDate,
-                Billable = request.Billable,
-                ClientId = request.ClientId,
-                ProjectId = request.ProjectId,
-                TicketId = request.TicketId,
-                UserId = userId,
-                Notes = request.Notes
-            };
+                var expense = new Expense {
+                    Description = request.Description,
+                    Category = request.Category,
+                    Amount = request.Amount,
+                    ExpenseDate = request.ExpenseDate,
+                    Billable = request.Billable,
+                    ClientId = request.ClientId,
+                    ProjectId = request.ProjectId,
+                    TicketId = request.TicketId,
+                    UserId = userId,
+                    Notes = request.Notes
+                };
 
-            db.Set<Expense>().Add(expense);
-            await db.SaveChangesAsync(ct);
+                db.Set<Expense>().Add(expense);
+                await db.SaveChangesAsync(ct);
 
-            var dto = await EnrichDto(expense, bus, ct);
-            return Results.Created($"/api/expenses/{expense.Id}", Result.Ok(dto));
-        }).RequirePermission("expenses.create").WithTags("Expenses");
+                var dto = await EnrichDto(expense, bus, ct);
+                return Results.Created($"/api/expenses/{expense.Id}", Result.Ok(dto));
+            }).RequirePermission("expenses.create").WithTags("Expenses");
     }
 
     internal static async Task<ExpenseDto> EnrichDto(Expense e, IMessageBus bus, CancellationToken ct) {

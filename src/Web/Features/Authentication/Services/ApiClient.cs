@@ -16,14 +16,16 @@ public partial class ApiClient : IApiClient {
 
     private readonly HttpClient _http;
     private readonly ITokenStore _tokenStore;
+    private readonly ITokenRefreshService _refresh;
     private readonly NavigationManager _nav;
     private readonly ISnackbar _snackbar;
     private readonly ILogger<ApiClient> _logger;
 
-    public ApiClient(HttpClient http, ITokenStore tokenStore, NavigationManager nav,
-        ISnackbar snackbar, ILogger<ApiClient> logger) {
+    public ApiClient(HttpClient http, ITokenStore tokenStore, ITokenRefreshService refresh,
+        NavigationManager nav, ISnackbar snackbar, ILogger<ApiClient> logger) {
         _http = http;
         _tokenStore = tokenStore;
+        _refresh = refresh;
         _nav = nav;
         _snackbar = snackbar;
         _logger = logger;
@@ -70,9 +72,15 @@ public partial class ApiClient : IApiClient {
             var response = await RetryAsync(method, uri, action);
 
             if (response.StatusCode == HttpStatusCode.Unauthorized) {
-                await _tokenStore.ClearAsync();
-                _nav.NavigateTo("/login", forceLoad: false);
-                return Result.Fail<T>("Session expired. Please log in again.");
+                response.Dispose();
+                if (await TryRefreshAndReattachAsync()) {
+                    response = await RetryAsync(method, uri, action);
+                }
+                if (response.StatusCode == HttpStatusCode.Unauthorized) {
+                    await _tokenStore.ClearAsync();
+                    _nav.NavigateTo("/login", forceLoad: false);
+                    return Result.Fail<T>("Session expired. Please log in again.");
+                }
             }
 
             if (response.StatusCode == HttpStatusCode.Forbidden) {
@@ -120,9 +128,15 @@ public partial class ApiClient : IApiClient {
             var response = await RetryAsync(method, uri, action);
 
             if (response.StatusCode == HttpStatusCode.Unauthorized) {
-                await _tokenStore.ClearAsync();
-                _nav.NavigateTo("/login", forceLoad: false);
-                return PagedResult.Fail<T>("Session expired. Please log in again.");
+                response.Dispose();
+                if (await TryRefreshAndReattachAsync()) {
+                    response = await RetryAsync(method, uri, action);
+                }
+                if (response.StatusCode == HttpStatusCode.Unauthorized) {
+                    await _tokenStore.ClearAsync();
+                    _nav.NavigateTo("/login", forceLoad: false);
+                    return PagedResult.Fail<T>("Session expired. Please log in again.");
+                }
             }
 
             if (response.StatusCode == HttpStatusCode.Forbidden) {
@@ -163,24 +177,54 @@ public partial class ApiClient : IApiClient {
     }
 
     private async Task AttachTokenAsync() {
-        var token = await _tokenStore.GetTokenAsync();
+        // Pre-flight: if the access token is about to expire, refresh silently
+        // before the request goes out. Avoids a guaranteed 401 + retry round-trip.
+        var token = await _tokenStore.GetValidTokenAsync();
+        if (token is null && await _tokenStore.GetRefreshTokenAsync() is not null) {
+            token = await _refresh.TryRefreshAsync();
+        }
         _http.DefaultRequestHeaders.Authorization = token is not null
             ? new AuthenticationHeaderValue("Bearer", token)
             : null;
+    }
+
+    /// <summary>Reactive path: 401 came back. Try refresh once, re-attach, signal retry.</summary>
+    private async Task<bool> TryRefreshAndReattachAsync() {
+        var newToken = await _refresh.TryRefreshAsync();
+        if (newToken is null) return false;
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", newToken);
+        return true;
     }
 
     private async Task<HttpResponseMessage> RetryAsync(string method, string uri,
         Func<Task<HttpResponseMessage>> action) {
         var response = await action();
         for (var i = 0; i < RetryDelays.Length; i++) {
-            if (response.StatusCode is not (HttpStatusCode.BadGateway
-                or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout))
-                return response;
+            if (!IsTransient(response.StatusCode)) return response;
+            var delay = RetryAfter(response) ?? RetryDelays[i];
             LogRetry(_logger, method, uri, (int)response.StatusCode, i + 1);
-            await Task.Delay(RetryDelays[i]);
+            await Task.Delay(delay);
             response = await action();
         }
         return response;
+    }
+
+    private static bool IsTransient(HttpStatusCode status) =>
+        status is HttpStatusCode.RequestTimeout
+               or HttpStatusCode.TooManyRequests
+               or HttpStatusCode.BadGateway
+               or HttpStatusCode.ServiceUnavailable
+               or HttpStatusCode.GatewayTimeout;
+
+    private static TimeSpan? RetryAfter(HttpResponseMessage response) {
+        var ra = response.Headers.RetryAfter;
+        if (ra is null) return null;
+        if (ra.Delta.HasValue) return ra.Delta.Value;
+        if (ra.Date.HasValue) {
+            var d = ra.Date.Value - DateTimeOffset.UtcNow;
+            return d > TimeSpan.Zero ? d : TimeSpan.Zero;
+        }
+        return null;
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "{Method} {Uri} failed with HTTP {Status}")]

@@ -21,34 +21,34 @@ public class GetAllContactsEndpoint : IEndpointFeature {
             int page = 1, int pageSize = 25,
             CancellationToken ct = default) => {
 
-            var query = db.Set<Contact>().AsQueryable();
-            if (clientId.HasValue) query = query.Where(c => c.ClientId == clientId.Value);
+                var query = db.Set<Contact>().AsQueryable();
+                if (clientId.HasValue) query = query.Where(c => c.ClientId == clientId.Value);
 
-            var ordered = query.OrderBy(c => c.LastName).ThenBy(c => c.FirstName);
-            var totalCount = await ordered.CountAsync(ct);
-            var contacts = await ordered
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var ordered = query.OrderBy(c => c.LastName).ThenBy(c => c.FirstName);
+                var totalCount = await ordered.CountAsync(ct);
+                var contacts = await ordered
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            var clientIds = contacts.Select(c => c.ClientId).Distinct().ToList();
-            var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
+                var clientIds = contacts.Select(c => c.ClientId).Distinct().ToList();
+                var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
 
-            var dtos = contacts.Select(c => new ContactDto {
-                Id = c.Id,
-                ClientId = c.ClientId,
-                ClientName = clientNames.GetValueOrDefault(c.ClientId, string.Empty),
-                FirstName = c.FirstName,
-                LastName = c.LastName,
-                Title = c.Title,
-                Email = c.Email,
-                Phone = c.Phone,
-                IsPrimary = c.IsPrimary,
-                CreatedAt = c.CreatedAt,
-                UpdatedAt = c.UpdatedAt
-            }).ToList();
+                var dtos = contacts.Select(c => new ContactDto {
+                    Id = c.Id,
+                    ClientId = c.ClientId,
+                    ClientName = clientNames.GetValueOrDefault(c.ClientId, string.Empty),
+                    FirstName = c.FirstName,
+                    LastName = c.LastName,
+                    Title = c.Title,
+                    Email = c.Email,
+                    Phone = c.Phone,
+                    IsPrimary = c.IsPrimary,
+                    CreatedAt = c.CreatedAt,
+                    UpdatedAt = c.UpdatedAt
+                }).ToList();
 
-            return Results.Ok(PagedResult.Ok<ContactDto>(dtos, totalCount, page, pageSize));
-        }).RequirePermission("contacts.list").WithTags("Contacts");
+                return Results.Ok(PagedResult.Ok<ContactDto>(dtos, totalCount, page, pageSize));
+            }).RequirePermission("contacts.list").WithTags("Contacts");
     }
 }

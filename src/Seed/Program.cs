@@ -45,12 +45,17 @@ using OpenPsa.Modules.TimeEntries;
 using OpenPsa.Modules.TimeEntries.Models;
 
 var config = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json", optional: false)
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("appsettings.Development.json", optional: true)
+    .AddUserSecrets<Program>(optional: true)
     .AddEnvironmentVariables()
     .Build();
 
 var connectionString = config.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("DefaultConnection is required");
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is required. " +
+        "Set it via `dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"...\" --project src/Seed` " +
+        "or the ConnectionStrings__DefaultConnection environment variable.");
 
 var moduleAssemblies = new[] {
     typeof(AuthenticationModule).Assembly,

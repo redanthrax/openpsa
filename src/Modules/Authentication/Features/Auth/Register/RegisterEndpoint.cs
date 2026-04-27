@@ -22,27 +22,27 @@ public class RegisterEndpoint : IEndpointFeature {
             IPermissionService permissionService,
             CancellationToken ct) => {
 
-            var exists = await db.Set<User>().AnyAsync(u => u.Email == request.Email, ct);
-            if (exists)
-                return Results.Json(Result.Fail<UserDto>("A user with this email already exists"), statusCode: 409);
+                var exists = await db.Set<User>().AnyAsync(u => u.Email == request.Email, ct);
+                if (exists)
+                    return Results.Json(Result.Fail<UserDto>("A user with this email already exists"), statusCode: 409);
 
-            var user = new User {
-                Email = request.Email,
-                Name = request.Name,
-                LocalPasswordHash = PasswordHasher.Hash(request.Password),
-                IsActive = true
-            };
+                var user = new User {
+                    Email = request.Email,
+                    Name = request.Name,
+                    LocalPasswordHash = PasswordHasher.Hash(request.Password),
+                    IsActive = true
+                };
 
-            db.Set<User>().Add(user);
-            await db.SaveChangesAsync(ct);
+                db.Set<User>().Add(user);
+                await db.SaveChangesAsync(ct);
 
-            return Results.Ok(Result.Ok(new UserDto {
-                Id = user.Id.ToString(),
-                Email = user.Email,
-                Name = user.Name,
-                IsActive = user.IsActive
-            }));
-        }).AllowAnonymous().WithTags("Auth");
+                return Results.Ok(Result.Ok(new UserDto {
+                    Id = user.Id.ToString(),
+                    Email = user.Email,
+                    Name = user.Name,
+                    IsActive = user.IsActive
+                }));
+            }).AllowAnonymous().WithTags("Auth");
     }
 
 }

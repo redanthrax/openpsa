@@ -23,7 +23,7 @@ public partial class UserPermissionService : IUserPermissionService {
             var result = await _api.GetAsync<CurrentUserDto>("/api/users/me");
             if (result.Success && result.Data is not null) {
                 CurrentUser = result.Data;
-                _permissions = [..result.Data.Permissions];
+                _permissions = [.. result.Data.Permissions];
                 IsInitialized = true;
                 LogLoaded(_logger, _permissions.Count, CurrentUser.Email);
                 OnPermissionsChanged?.Invoke();

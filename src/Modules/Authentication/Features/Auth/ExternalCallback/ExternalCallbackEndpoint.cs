@@ -21,33 +21,33 @@ public class ExternalCallbackEndpoint : IEndpointFeature {
             IPermissionService permissionService,
             CancellationToken ct) => {
 
-            var user = await db.Set<User>()
-                .FirstOrDefaultAsync(u => u.ExternalProvider == request.Provider && u.ExternalSubjectId == request.SubjectId, ct)
-                ?? await db.Set<User>().FirstOrDefaultAsync(u => u.Email == request.Email, ct);
+                var user = await db.Set<User>()
+                    .FirstOrDefaultAsync(u => u.ExternalProvider == request.Provider && u.ExternalSubjectId == request.SubjectId, ct)
+                    ?? await db.Set<User>().FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
-            if (user == null) {
-                user = new User {
-                    Email = request.Email,
-                    Name = request.Name,
-                    ExternalProvider = request.Provider,
-                    ExternalSubjectId = request.SubjectId
-                };
-                db.Set<User>().Add(user);
-            } else {
-                user.ExternalProvider ??= request.Provider;
-                user.ExternalSubjectId ??= request.SubjectId;
-            }
+                if (user == null) {
+                    user = new User {
+                        Email = request.Email,
+                        Name = request.Name,
+                        ExternalProvider = request.Provider,
+                        ExternalSubjectId = request.SubjectId
+                    };
+                    db.Set<User>().Add(user);
+                } else {
+                    user.ExternalProvider ??= request.Provider;
+                    user.ExternalSubjectId ??= request.SubjectId;
+                }
 
-            if (!user.IsActive)
-                return Results.Json(Result.Fail<string>("Account is disabled"), statusCode: 403);
+                if (!user.IsActive)
+                    return Results.Json(Result.Fail<string>("Account is disabled"), statusCode: 403);
 
-            user.LastLoginAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(ct);
+                user.LastLoginAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
 
-            var permissions = await permissionService.GetUserPermissionsAsync(user.Id, ct);
-            var token = jwtService.GenerateToken(user.Id, user.Email, user.Name, user.IsSuperAdmin, permissions);
+                var permissions = await permissionService.GetUserPermissionsAsync(user.Id, ct);
+                var token = jwtService.GenerateToken(user.Id, user.Email, user.Name, user.IsSuperAdmin, permissions);
 
-            return Results.Ok(Result.Ok(token));
-        }).AllowAnonymous().WithTags("Auth");
+                return Results.Ok(Result.Ok(token));
+            }).AllowAnonymous().WithTags("Auth");
     }
 }

@@ -18,22 +18,22 @@ public class GetAllPermissionsEndpoint : IEndpointFeature {
             int page = 1, int pageSize = 100,
             CancellationToken ct = default) => {
 
-            var query = db.Set<Permission>()
-                .OrderBy(p => p.Category).ThenBy(p => p.Name)
-                .Select(p => new PermissionDto {
-                    Key = p.Key,
-                    Name = p.Name,
-                    Description = p.Description,
-                    Category = p.Category
-                });
+                var query = db.Set<Permission>()
+                    .OrderBy(p => p.Category).ThenBy(p => p.Name)
+                    .Select(p => new PermissionDto {
+                        Key = p.Key,
+                        Name = p.Name,
+                        Description = p.Description,
+                        Category = p.Category
+                    });
 
-            var totalCount = await query.CountAsync(ct);
-            var items = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var totalCount = await query.CountAsync(ct);
+                var items = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
-        }).RequirePermission("permissions.list").WithTags("Permissions");
+                return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
+            }).RequirePermission("permissions.list").WithTags("Permissions");
     }
 }

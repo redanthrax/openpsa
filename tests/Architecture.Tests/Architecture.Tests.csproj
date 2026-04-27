@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Common\Common.csproj" />
+    <ProjectReference Include="..\..\src\Api\Api.csproj" />
+    <ProjectReference Include="..\..\src\Web\Web.csproj" />
+    <ProjectReference Include="..\..\src\Contracts\Contracts.csproj" />
+    <ProjectReference Include="..\..\src\IntegrationEvents\IntegrationEvents.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Authentication\Authentication.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tickets\Tickets.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Clients\Clients.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Contacts\Contacts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Projects\Projects.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TimeEntries\TimeEntries.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Invoicing\Invoicing.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notes\Notes.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Security\Security.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Settings\Settings.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Dashboard\Dashboard.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Agreements\Agreements.csproj" />
+  </ItemGroup>
+
+</Project>

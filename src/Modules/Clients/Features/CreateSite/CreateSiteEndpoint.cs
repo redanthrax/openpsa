@@ -17,30 +17,30 @@ public class CreateSiteEndpoint : IEndpointFeature {
         app.MapPost("/api/sites", async (
             CreateSiteRequest request, OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
 
-            var clientResponse = await bus.InvokeAsync<GetClientNameResponse>(
-                new GetClientNameQuery(request.ClientId), ct);
-            if (!clientResponse.Found)
-                return Results.Json(Result.Fail<SiteDto>("Client not found"), statusCode: 404);
+                var clientResponse = await bus.InvokeAsync<GetClientNameResponse>(
+                    new GetClientNameQuery(request.ClientId), ct);
+                if (!clientResponse.Found)
+                    return Results.Json(Result.Fail<SiteDto>("Client not found"), statusCode: 404);
 
-            var site = new Site {
-                ClientId = request.ClientId,
-                Name = request.Name,
-                Address = request.Address,
-                City = request.City,
-                State = request.State,
-                PostalCode = request.PostalCode,
-                Country = request.Country,
-                Timezone = request.Timezone,
-                Phone = request.Phone,
-                Notes = request.Notes,
-                IsPrimary = request.IsPrimary
-            };
+                var site = new Site {
+                    ClientId = request.ClientId,
+                    Name = request.Name,
+                    Address = request.Address,
+                    City = request.City,
+                    State = request.State,
+                    PostalCode = request.PostalCode,
+                    Country = request.Country,
+                    Timezone = request.Timezone,
+                    Phone = request.Phone,
+                    Notes = request.Notes,
+                    IsPrimary = request.IsPrimary
+                };
 
-            db.Set<Site>().Add(site);
-            await db.SaveChangesAsync(ct);
+                db.Set<Site>().Add(site);
+                await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/sites/{site.Id}", Result.Ok(MapToDto(site, clientResponse.Name)));
-        }).RequirePermission("sites.create").WithTags("Sites");
+                return Results.Created($"/api/sites/{site.Id}", Result.Ok(MapToDto(site, clientResponse.Name)));
+            }).RequirePermission("sites.create").WithTags("Sites");
     }
 
     internal static SiteDto MapToDto(Site s, string? clientName = null) => new() {

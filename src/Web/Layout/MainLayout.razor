@@ -11,7 +11,19 @@
         </MudDrawer>
         <MudMainContent>
             <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
-                @Body
+                <ErrorBoundary @ref="_errorBoundary">
+                    <ChildContent>
+                        @Body
+                    </ChildContent>
+                    <ErrorContent Context="ex">
+                        <MudAlert Severity="Severity.Error" ContentAlignment="HorizontalAlignment.Left" Class="my-4">
+                            <MudText Typo="Typo.h6">Something went wrong rendering this page.</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@ex.Message</MudText>
+                            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="mt-2"
+                                       OnClick="ResetError">Try again</MudButton>
+                        </MudAlert>
+                    </ErrorContent>
+                </ErrorBoundary>
             </MudContainer>
         </MudMainContent>
     </MudLayout>
@@ -19,8 +31,13 @@
 
 @code {
     private bool _drawerOpen = true;
+    private ErrorBoundary? _errorBoundary;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private void ResetError() => _errorBoundary?.Recover();
+
+    protected override void OnParametersSet() => _errorBoundary?.Recover();
 
     public void Dispose() { }
 }

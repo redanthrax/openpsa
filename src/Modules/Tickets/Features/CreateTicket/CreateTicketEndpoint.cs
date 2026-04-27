@@ -1,6 +1,8 @@
 using Common.Authorization;
 using Common.Database;
 using Common.Modules;
+using Common.RateLimiting;
+using Common.Validation;
 using Contracts.Results;
 using Contracts.Tickets;
 using IntegrationEvents.Authentication;
@@ -8,6 +10,7 @@ using IntegrationEvents.Clients;
 using IntegrationEvents.Projects;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using OpenPsa.Modules.Tickets.Models;
@@ -61,6 +64,9 @@ public class CreateTicketEndpoint : IEndpointFeature {
                 CreatedAt = ticket.CreatedAt,
                 UpdatedAt = ticket.UpdatedAt
             }));
-        }).RequirePermission("tickets.create").WithTags("Tickets");
+        }).RequirePermission("tickets.create")
+          .WithTags("Tickets")
+          .WithValidation()
+          .RequireRateLimiting(RateLimitingExtensions.WritePolicy);
     }
 }

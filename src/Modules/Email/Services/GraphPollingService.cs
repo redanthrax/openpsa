@@ -22,8 +22,7 @@ public class GraphPollingService : BackgroundService {
         while (!stoppingToken.IsCancellationRequested) {
             try {
                 await PollAllMailboxesAsync(stoppingToken);
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 _logger.LogError(ex, "Error polling Graph mailboxes");
             }
 
@@ -53,8 +52,7 @@ public class GraphPollingService : BackgroundService {
                 await PollMailboxAsync(db, scope.ServiceProvider, mailbox, ct);
                 mailbox.LastPollAt = DateTime.UtcNow;
                 mailbox.LastError = null;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 _logger.LogError(ex, "Error polling Graph mailbox {MailboxId} ({Email})", mailbox.Id, mailbox.EmailAddress);
                 mailbox.LastError = ex.Message;
                 mailbox.Status = MailboxConnectionStatus.Error;

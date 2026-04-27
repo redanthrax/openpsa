@@ -21,32 +21,32 @@ public class GetAllInvoicesEndpoint : IEndpointFeature {
             int page = 1, int pageSize = 25,
             CancellationToken ct = default) => {
 
-            var query = db.Set<Invoice>().AsQueryable();
-            if (clientId.HasValue) query = query.Where(i => i.ClientId == clientId.Value);
-            if (status.HasValue) query = query.Where(i => i.Status == status.Value);
+                var query = db.Set<Invoice>().AsQueryable();
+                if (clientId.HasValue) query = query.Where(i => i.ClientId == clientId.Value);
+                if (status.HasValue) query = query.Where(i => i.Status == status.Value);
 
-            var ordered = query.Include(i => i.LineItems).OrderByDescending(i => i.InvoiceDate);
-            var totalCount = await query.CountAsync(ct);
-            var invoices = await ordered
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var ordered = query.Include(i => i.LineItems).OrderByDescending(i => i.InvoiceDate);
+                var totalCount = await query.CountAsync(ct);
+                var invoices = await ordered
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            var clientIds = invoices.Select(i => i.ClientId).Distinct().ToList();
-            var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
+                var clientIds = invoices.Select(i => i.ClientId).Distinct().ToList();
+                var clientNames = (await bus.InvokeAsync<GetClientNamesResponse>(new GetClientNamesQuery(clientIds), ct)).Names;
 
-            var dtos = invoices.Select(i => new InvoiceSummaryDto {
-                Id = i.Id,
-                InvoiceNumber = i.InvoiceNumber,
-                ClientName = clientNames.GetValueOrDefault(i.ClientId, string.Empty),
-                Status = i.Status,
-                InvoiceDate = i.InvoiceDate,
-                DueDate = i.DueDate,
-                Total = i.Total,
-                AmountDue = i.AmountDue
-            }).ToList();
+                var dtos = invoices.Select(i => new InvoiceSummaryDto {
+                    Id = i.Id,
+                    InvoiceNumber = i.InvoiceNumber,
+                    ClientName = clientNames.GetValueOrDefault(i.ClientId, string.Empty),
+                    Status = i.Status,
+                    InvoiceDate = i.InvoiceDate,
+                    DueDate = i.DueDate,
+                    Total = i.Total,
+                    AmountDue = i.AmountDue
+                }).ToList();
 
-            return Results.Ok(PagedResult.Ok<InvoiceSummaryDto>(dtos, totalCount, page, pageSize));
-        }).RequirePermission("invoices.list").WithTags("Invoicing");
+                return Results.Ok(PagedResult.Ok<InvoiceSummaryDto>(dtos, totalCount, page, pageSize));
+            }).RequirePermission("invoices.list").WithTags("Invoicing");
     }
 }

@@ -21,8 +21,7 @@ public class SlaBreachCheckerService : BackgroundService {
         while (!stoppingToken.IsCancellationRequested) {
             try {
                 await CheckBreachesAsync(stoppingToken);
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 _logger.LogError(ex, "Error checking SLA breaches");
             }
 

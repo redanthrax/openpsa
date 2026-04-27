@@ -23,8 +23,7 @@ public class ImapPollingService : BackgroundService {
         while (!stoppingToken.IsCancellationRequested) {
             try {
                 await PollAllMailboxesAsync(stoppingToken);
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 _logger.LogError(ex, "Error polling IMAP mailboxes");
             }
 
@@ -54,8 +53,7 @@ public class ImapPollingService : BackgroundService {
                 await PollMailboxAsync(db, scope.ServiceProvider, mailbox, ct);
                 mailbox.LastPollAt = DateTime.UtcNow;
                 mailbox.LastError = null;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 _logger.LogError(ex, "Error polling mailbox {MailboxId} ({Email})", mailbox.Id, mailbox.EmailAddress);
                 mailbox.LastError = ex.Message;
                 mailbox.Status = MailboxConnectionStatus.Error;

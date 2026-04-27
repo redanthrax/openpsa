@@ -15,12 +15,12 @@ public class GetExpenseByIdEndpoint : IEndpointFeature {
         app.MapGet("/api/expenses/{id:guid}", async (
             Guid id, OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
 
-            var expense = await db.Set<Expense>().FindAsync([id], ct);
-            if (expense is null)
-                return Results.Json(Result.Fail<object>("Expense not found"), statusCode: 404);
+                var expense = await db.Set<Expense>().FindAsync([id], ct);
+                if (expense is null)
+                    return Results.Json(Result.Fail<object>("Expense not found"), statusCode: 404);
 
-            var dto = await CreateExpense.CreateExpenseEndpoint.EnrichDto(expense, bus, ct);
-            return Results.Ok(Result.Ok(dto));
-        }).RequirePermission("expenses.view").WithTags("Expenses");
+                var dto = await CreateExpense.CreateExpenseEndpoint.EnrichDto(expense, bus, ct);
+                return Results.Ok(Result.Ok(dto));
+            }).RequirePermission("expenses.view").WithTags("Expenses");
     }
 }

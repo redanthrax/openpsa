@@ -16,34 +16,34 @@ public class CreateMailboxConnectionEndpoint : IEndpointFeature {
         app.MapPost("/api/mailbox-connections", async (
             CreateMailboxConnectionRequest request, OpenPsaDbContext db, IPiiEncryptionService pii) => {
 
-            var connection = new MailboxConnection {
-                Name = request.Name,
-                EmailAddress = request.EmailAddress,
-                Provider = request.Provider,
-                DefaultQueueId = request.DefaultQueueId,
-                ImapHost = request.ImapHost,
-                ImapPort = request.ImapPort,
-                ImapUseSsl = request.ImapUseSsl,
-                ImapUsername = request.ImapUsername,
-                EncryptedImapPassword = request.ImapPassword != null ? pii.Encrypt(request.ImapPassword) : null,
-                SmtpHost = request.SmtpHost,
-                SmtpPort = request.SmtpPort,
-                SmtpUseSsl = request.SmtpUseSsl,
-                SmtpUsername = request.SmtpUsername,
-                EncryptedSmtpPassword = request.SmtpPassword != null ? pii.Encrypt(request.SmtpPassword) : null,
-                GraphTenantId = request.GraphTenantId,
-                GraphClientId = request.GraphClientId,
-                EncryptedGraphClientSecret = request.GraphClientSecret != null ? pii.Encrypt(request.GraphClientSecret) : null,
-                GraphMailboxUserId = request.GraphMailboxUserId,
-                PollIntervalSeconds = request.PollIntervalSeconds,
-                AutoCreateContacts = request.AutoCreateContacts
-            };
+                var connection = new MailboxConnection {
+                    Name = request.Name,
+                    EmailAddress = request.EmailAddress,
+                    Provider = request.Provider,
+                    DefaultQueueId = request.DefaultQueueId,
+                    ImapHost = request.ImapHost,
+                    ImapPort = request.ImapPort,
+                    ImapUseSsl = request.ImapUseSsl,
+                    ImapUsername = request.ImapUsername,
+                    EncryptedImapPassword = request.ImapPassword != null ? pii.Encrypt(request.ImapPassword) : null,
+                    SmtpHost = request.SmtpHost,
+                    SmtpPort = request.SmtpPort,
+                    SmtpUseSsl = request.SmtpUseSsl,
+                    SmtpUsername = request.SmtpUsername,
+                    EncryptedSmtpPassword = request.SmtpPassword != null ? pii.Encrypt(request.SmtpPassword) : null,
+                    GraphTenantId = request.GraphTenantId,
+                    GraphClientId = request.GraphClientId,
+                    EncryptedGraphClientSecret = request.GraphClientSecret != null ? pii.Encrypt(request.GraphClientSecret) : null,
+                    GraphMailboxUserId = request.GraphMailboxUserId,
+                    PollIntervalSeconds = request.PollIntervalSeconds,
+                    AutoCreateContacts = request.AutoCreateContacts
+                };
 
-            db.Set<MailboxConnection>().Add(connection);
-            await db.SaveChangesAsync();
+                db.Set<MailboxConnection>().Add(connection);
+                await db.SaveChangesAsync();
 
-            return Results.Created($"/api/mailbox-connections/{connection.Id}", Result.Ok(MapToDto(connection)));
-        }).RequirePermission("mailbox-connections.create").WithTags("Email");
+                return Results.Created($"/api/mailbox-connections/{connection.Id}", Result.Ok(MapToDto(connection)));
+            }).RequirePermission("mailbox-connections.create").WithTags("Email");
     }
 
     internal static MailboxConnectionDto MapToDto(MailboxConnection c) => new() {

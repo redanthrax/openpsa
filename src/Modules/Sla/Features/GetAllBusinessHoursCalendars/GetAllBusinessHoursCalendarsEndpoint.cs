@@ -18,18 +18,18 @@ public class GetAllBusinessHoursCalendarsEndpoint : IEndpointFeature {
             int page = 1, int pageSize = 25,
             CancellationToken ct = default) => {
 
-            var totalCount = await db.Set<BusinessHoursCalendar>().CountAsync(ct);
-            var calendars = await db.Set<BusinessHoursCalendar>()
-                .Include(c => c.Schedules)
-                .Include(c => c.Holidays)
-                .OrderBy(c => c.Name)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var totalCount = await db.Set<BusinessHoursCalendar>().CountAsync(ct);
+                var calendars = await db.Set<BusinessHoursCalendar>()
+                    .Include(c => c.Schedules)
+                    .Include(c => c.Holidays)
+                    .OrderBy(c => c.Name)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            var dtos = calendars.Select(MapToDto).ToList();
-            return Results.Ok(PagedResult.Ok<BusinessHoursCalendarDto>(dtos, totalCount, page, pageSize));
-        }).RequirePermission("sla-policies.list").WithTags("Business Hours");
+                var dtos = calendars.Select(MapToDto).ToList();
+                return Results.Ok(PagedResult.Ok<BusinessHoursCalendarDto>(dtos, totalCount, page, pageSize));
+            }).RequirePermission("sla-policies.list").WithTags("Business Hours");
     }
 
     internal static BusinessHoursCalendarDto MapToDto(BusinessHoursCalendar c) => new() {

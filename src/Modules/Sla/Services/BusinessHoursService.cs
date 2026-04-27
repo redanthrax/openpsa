@@ -34,7 +34,6 @@ public class BusinessHoursService {
             }
 
             var currentTime = TimeOnly.FromDateTime(local);
-            var consumed = false;
 
             foreach (var schedule in schedules) {
                 if (currentTime >= schedule.EndTime) continue;
@@ -47,12 +46,10 @@ public class BusinessHoursService {
                 if (remaining <= availableMinutes) {
                     local = local.Date + effectiveStart.AddMinutes(remaining).ToTimeSpan();
                     remaining = 0;
-                    consumed = true;
                     break;
                 }
 
                 remaining -= availableMinutes;
-                consumed = true;
             }
 
             if (remaining > 0) {

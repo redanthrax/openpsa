@@ -18,26 +18,26 @@ public class GetAllMailboxConnectionsEndpoint : IEndpointFeature {
             int page = 1, int pageSize = 25,
             CancellationToken ct = default) => {
 
-            var query = db.Set<MailboxConnection>()
-                .OrderBy(c => c.Name)
-                .Select(c => new MailboxConnectionSummaryDto {
-                    Id = c.Id,
-                    Name = c.Name,
-                    EmailAddress = c.EmailAddress,
-                    Provider = c.Provider,
-                    Status = c.Status,
-                    LastPollAt = c.LastPollAt,
-                    MessageCount = c.MessageCount,
-                    LastError = c.LastError
-                });
+                var query = db.Set<MailboxConnection>()
+                    .OrderBy(c => c.Name)
+                    .Select(c => new MailboxConnectionSummaryDto {
+                        Id = c.Id,
+                        Name = c.Name,
+                        EmailAddress = c.EmailAddress,
+                        Provider = c.Provider,
+                        Status = c.Status,
+                        LastPollAt = c.LastPollAt,
+                        MessageCount = c.MessageCount,
+                        LastError = c.LastError
+                    });
 
-            var totalCount = await query.CountAsync(ct);
-            var items = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var totalCount = await query.CountAsync(ct);
+                var items = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
-        }).RequirePermission("mailbox-connections.list").WithTags("Email");
+                return Results.Ok(PagedResult.Ok(items, totalCount, page, pageSize));
+            }).RequirePermission("mailbox-connections.list").WithTags("Email");
     }
 }

@@ -17,35 +17,35 @@ public class CreateAssetEndpoint : IEndpointFeature {
         app.MapPost("/api/assets", async (
             CreateAssetRequest request, OpenPsaDbContext db, IMessageBus bus, CancellationToken ct) => {
 
-            var clientResponse = await bus.InvokeAsync<GetClientNameResponse>(
-                new GetClientNameQuery(request.ClientId), ct);
-            if (!clientResponse.Found)
-                return Results.Json(Result.Fail<AssetDto>("Client not found"), statusCode: 404);
+                var clientResponse = await bus.InvokeAsync<GetClientNameResponse>(
+                    new GetClientNameQuery(request.ClientId), ct);
+                if (!clientResponse.Found)
+                    return Results.Json(Result.Fail<AssetDto>("Client not found"), statusCode: 404);
 
-            var asset = new Asset {
-                Name = request.Name,
-                Type = request.Type,
-                Status = request.Status,
-                ClientId = request.ClientId,
-                SiteId = request.SiteId,
-                SerialNumber = request.SerialNumber,
-                Manufacturer = request.Manufacturer,
-                Model = request.Model,
-                OperatingSystem = request.OperatingSystem,
-                IpAddress = request.IpAddress,
-                MacAddress = request.MacAddress,
-                PurchaseDate = request.PurchaseDate,
-                WarrantyExpiry = request.WarrantyExpiry,
-                PurchasePrice = request.PurchasePrice,
-                Location = request.Location,
-                Notes = request.Notes
-            };
+                var asset = new Asset {
+                    Name = request.Name,
+                    Type = request.Type,
+                    Status = request.Status,
+                    ClientId = request.ClientId,
+                    SiteId = request.SiteId,
+                    SerialNumber = request.SerialNumber,
+                    Manufacturer = request.Manufacturer,
+                    Model = request.Model,
+                    OperatingSystem = request.OperatingSystem,
+                    IpAddress = request.IpAddress,
+                    MacAddress = request.MacAddress,
+                    PurchaseDate = request.PurchaseDate,
+                    WarrantyExpiry = request.WarrantyExpiry,
+                    PurchasePrice = request.PurchasePrice,
+                    Location = request.Location,
+                    Notes = request.Notes
+                };
 
-            db.Set<Asset>().Add(asset);
-            await db.SaveChangesAsync(ct);
+                db.Set<Asset>().Add(asset);
+                await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/assets/{asset.Id}", Result.Ok(MapToDto(asset, clientResponse.Name)));
-        }).RequirePermission("assets.create").WithTags("Assets");
+                return Results.Created($"/api/assets/{asset.Id}", Result.Ok(MapToDto(asset, clientResponse.Name)));
+            }).RequirePermission("assets.create").WithTags("Assets");
     }
 
     internal static AssetDto MapToDto(Asset a, string? clientName = null) => new() {

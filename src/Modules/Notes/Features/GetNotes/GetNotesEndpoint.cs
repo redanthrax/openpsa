@@ -1,5 +1,5 @@
-using Common.Authorization;
 using Common.Authentication;
+using Common.Authorization;
 using Common.Database;
 using Common.Modules;
 using Contracts.Notes;
@@ -22,32 +22,32 @@ public class GetNotesEndpoint : IEndpointFeature {
             OpenPsaDbContext db = default!, IMessageBus bus = default!,
             CancellationToken ct = default) => {
 
-            var query = db.Set<Note>()
-                .Where(n => n.EntityType == entityType && n.EntityId == entityId)
-                .OrderByDescending(n => n.CreatedAt);
+                var query = db.Set<Note>()
+                    .Where(n => n.EntityType == entityType && n.EntityId == entityId)
+                    .OrderByDescending(n => n.CreatedAt);
 
-            var totalCount = await query.CountAsync(ct);
-            var notes = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(ct);
+                var totalCount = await query.CountAsync(ct);
+                var notes = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
 
-            var userIds = notes.Select(n => n.UserId).Distinct().ToList();
-            var userNames = (await bus.InvokeAsync<GetUserNamesResponse>(new GetUserNamesQuery(userIds), ct)).Names;
+                var userIds = notes.Select(n => n.UserId).Distinct().ToList();
+                var userNames = (await bus.InvokeAsync<GetUserNamesResponse>(new GetUserNamesQuery(userIds), ct)).Names;
 
-            var dtos = notes.Select(n => new NoteDto {
-                Id = n.Id,
-                EntityType = n.EntityType,
-                EntityId = n.EntityId,
-                Content = n.Content,
-                UserId = n.UserId.ToString(),
-                UserName = userNames.GetValueOrDefault(n.UserId, string.Empty),
-                IsInternal = n.IsInternal,
-                CreatedAt = n.CreatedAt,
-                UpdatedAt = n.UpdatedAt
-            }).ToList();
+                var dtos = notes.Select(n => new NoteDto {
+                    Id = n.Id,
+                    EntityType = n.EntityType,
+                    EntityId = n.EntityId,
+                    Content = n.Content,
+                    UserId = n.UserId.ToString(),
+                    UserName = userNames.GetValueOrDefault(n.UserId, string.Empty),
+                    IsInternal = n.IsInternal,
+                    CreatedAt = n.CreatedAt,
+                    UpdatedAt = n.UpdatedAt
+                }).ToList();
 
-            return Results.Ok(PagedResult.Ok<NoteDto>(dtos, totalCount, page, pageSize));
-        }).RequirePermission("notes.list").WithTags("Notes");
+                return Results.Ok(PagedResult.Ok<NoteDto>(dtos, totalCount, page, pageSize));
+            }).RequirePermission("notes.list").WithTags("Notes");
     }
 }
